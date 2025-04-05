@@ -1,0 +1,5 @@
+discord.py~=2.5.2
+attrs~=25.3.0
+mariadb~=1.1.12
+dotenv~=0.9.9
+python-dotenv~=1.1.0
