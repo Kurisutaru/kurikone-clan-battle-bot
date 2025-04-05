@@ -1,0 +1,6 @@
+[project]
+name = "kurikone-cb-bot"
+version = "0.1.0"
+description = "Princess Connect Discord CB Bot"
+requires-python = ">=3.12"
+dependencies = []
