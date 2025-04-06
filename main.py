@@ -1,4 +1,5 @@
 import logging
+import re
 from typing import List
 
 import discord
@@ -13,6 +14,12 @@ from enums import *
 handler = logging.FileHandler(filename='discord.log', encoding='utf-8', mode='w')
 
 NEW_LINE = "\n"
+
+TL_SHIFTER_CHANNEL = {}
+
+# Precompile regex patterns for better performance
+SPACE_PATTERN = re.compile(r'[ \t　]+')
+NON_DIGIT = re.compile(r'\D')
 
 intents = discord.Intents.default()
 intents.message_content = True
@@ -32,6 +39,67 @@ async def on_ready():
     print(f'We have logged in as {bot.user}')
     for guild in bot.guilds:
         await setup_channel(guild)
+
+
+@bot.event
+async def on_message(message):
+    # Early exit for bot messages
+    if message.author == bot.user:
+        return
+
+    # Early exit for non-target channels
+    if message.channel.id not in TL_SHIFTER_CHANNEL:
+        await bot.process_commands(message)
+        return
+
+    content = message.content
+    lines = content.split('\n', 1)  # Split only once if possible
+    if not lines:
+        await bot.process_commands(message)
+        return
+
+    # Process first line
+    first_line, *rest = lines[0].split('\n')  # Handle potential multi-split
+    first_segment = SPACE_PATTERN.split(first_line.strip(), 1)[0]
+    second_str = NON_DIGIT.sub('', first_segment)
+
+    if not second_str.isdigit():
+        await bot.process_commands(message)
+        return
+
+    second = int(second_str)
+    if second > 90:
+        await bot.process_commands(message)
+        return
+
+    sec_reduction = 90 - second
+    result_lines = [
+        f"TL Shift for {second}s",
+        "```powershell"
+    ]
+
+    # Process remaining lines
+    for line in (lines[1].split('\n') if len(lines) > 1 else []):
+        parts = SPACE_PATTERN.split(line.strip(), 1)
+        if len(parts) < 2:
+            continue
+
+        time_str, desc = parts
+        try:
+            parsed_time = utils.time_to_seconds(time_str)
+        except ValueError:
+            continue
+
+        result_time = parsed_time - sec_reduction
+        if result_time <= 0:
+            continue
+
+        result_lines.append(f"{utils.format_time(result_time)}  {desc.strip()}")
+
+    # Only send response if we have valid entries
+    if len(result_lines) > 2:
+        result_lines.append("```")
+        await message.reply(NEW_LINE.join(result_lines))
 
 
 @bot.event
@@ -90,6 +158,10 @@ async def setup_channel(guild):
         else:
             channel = guild.get_channel(channel_data.ChannelId)
             processed_channel.append((enum, channel))
+
+        # For TL Shifting watcher
+        if enum == ChannelEnum.TL_SHIFTER:
+            TL_SHIFTER_CHANNEL[channel.id] = None
 
     await setup_message(guild, channels=processed_channel)
 
@@ -545,7 +617,6 @@ async def refresh_boss_message(message):
 
     if len(done_entries) > 0:
         embeds.append(create_done_embed(done_entries))
-
 
     # Book
     cb_book_repository = ClanBattleBossBookRepository()

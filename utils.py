@@ -36,3 +36,16 @@ def format_large_number(num):
 
 def reduce_health(current_health: int, damage: int):
     return max(current_health - damage, 0)
+
+# TL Shifter
+def time_to_seconds(time_str: str) -> int:
+    """Convert time string (MM:SS or SS) to total seconds."""
+    if ':' in time_str:
+        m, s = map(int, time_str.split(':', 1))
+        return m * 60 + s
+    return int(time_str)
+
+def format_time(seconds: int) -> str:
+    """Convert total seconds to MM:SS format."""
+    m, s = divmod(seconds, 60)
+    return f"{m}:{s:02d}"
