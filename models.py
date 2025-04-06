@@ -1,20 +1,20 @@
 from datetime import datetime
-from enum import Enum
 
 import attr
+from enums import *
 
 
 @attr.s
-class GuildChannel:
+class Guild:
     GuildId: int = attr.ib(default=None)
-    CategoryId: int = attr.ib(default=None)
-    ReportChannelId: int = attr.ib(default=None)
-    Boss1ChannelId: int = attr.ib(default=None)
-    Boss2ChannelId: int = attr.ib(default=None)
-    Boss3ChannelId: int = attr.ib(default=None)
-    Boss4ChannelId: int = attr.ib(default=None)
-    Boss5ChannelId: int = attr.ib(default=None)
-    TlShifterChannelId: int = attr.ib(default=None)
+    GuildName: str = attr.ib(default=None)
+
+
+@attr.s
+class Channel:
+    ChannelId: int = attr.ib(default=None)
+    GuildId: int = attr.ib(default=None)
+    ChannelType: ChannelEnum = attr.ib(default=None, converter=lambda x: ChannelEnum[x] if isinstance(x, str) else x)
 
 
 @attr.s
@@ -27,7 +27,8 @@ class ChannelMessage:
 class ClanBattleBossEntry:
     ClanBattleBossEntryId: int = attr.ib(default=None)
     MessageId: int = attr.ib(default=None)
-    BossId: int = attr.ib(default=None)
+    ClanBattlePeriodId: int = attr.ib(default=None)
+    ClanBattleBossId: int = attr.ib(default=None)
     Name: str = attr.ib(default=None)
     Image: str = attr.ib(default=None)
     Round: int = attr.ib(default=None)
@@ -36,14 +37,16 @@ class ClanBattleBossEntry:
 
 
 @attr.s
-class ClanBattleBossPlayerEntry:
-    ClanBattleBossPlayerEntryId: int = attr.ib(default=None)
+class ClanBattleBossBook:
+    ClanBattleBossBookId: int = attr.ib(default=None)
     ClanBattleBossEntryId: int = attr.ib(default=None)
     PlayerId: int = attr.ib(default=None)
     PlayerName: str = attr.ib(default=None)
-    AttackType: str = attr.ib(default=None)
-    Damage: int = attr.ib(default=None)
-    IsDoneEntry: bool = attr.ib(default=None)
+    AttackType: AttackTypeEnum = attr.ib(default=None, converter=lambda x: AttackTypeEnum[x] if isinstance(x, str) else x)
+    Damage: int = attr.ib(default=0)
+    ClanBattleOverallEntryId: int = attr.ib(default=None)
+    LeftoverTime: int = attr.ib(default=0)
+    EntryDate: datetime = attr.ib(default=None)
 
 
 @attr.s
@@ -78,28 +81,29 @@ class ClanBattlePeriod:
 
 
 @attr.s
-class ClanBattleOverallPlayerEntry:
-    ClanBattleOverallPlayerEntryId: int = attr.ib(default=None)
+class ClanBattleOverallEntry:
+    ClanBattleOverallEntryId: int = attr.ib(default=None)
+    GuildId: int = attr.ib(default=None)
     ClanBattlePeriodId: int = attr.ib(default=None)
+    ClanBattleBossId: int = attr.ib(default=None)
     PlayerId: int = attr.ib(default=None)
     PlayerName: str = attr.ib(default=None)
-    Position: int = attr.ib(default=None)
+    Round: int = attr.ib(default=None)
+    AttackType: AttackTypeEnum = attr.ib(default=None,
+                                         converter=lambda x: AttackTypeEnum[x] if isinstance(x, str) else x)
     Damage: int = attr.ib(default=None)
-    IsLeftover: bool = attr.ib(default=None)
-    ParentCbOverallId: int = attr.ib(default=None)
+    LeftoverTime: int = attr.ib(default=None)
+    OverallParentEntryId: int = attr.ib(default=None)
+    EntryDate: datetime = attr.ib(default=None)
 
 
-class BookType(Enum):
-    BOOK = 0
-    DONE = 1
-
-
-# Enums for better readability
-class Emoji(Enum):
-    PATK = "🥊"
-    MATK = "📗"
-    CANCEL = "❌"
-    DONE = "✅"
-    BOOK = "⚔️"
-    ENTRY = "📝"
-    FINISH = "🏁"
+@attr.s
+class ClanBattleLeftover:
+    ClanBattleOverallEntryId: int = attr.ib(default=None)
+    ClanBattleBossId: int = attr.ib(default=None)
+    ClanBattleBossName: str = attr.ib(default=None)
+    PlayerId: int = attr.ib(default=None)
+    AttackType: AttackTypeEnum = attr.ib(default=None,
+                                         converter=lambda x: AttackTypeEnum[x] if isinstance(x, str) else x)
+    LeftoverTime: int = attr.ib(default=None)
+    OverallParentEntryId: int = attr.ib(default=None)

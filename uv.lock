@@ -197,7 +197,7 @@ wheels = [
 ]
 
 [[package]]
-name = "kurisutaru-discord-bot"
+name = "kurikone-cb-bot"
 version = "0.1.0"
 source = { virtual = "." }
 dependencies = [

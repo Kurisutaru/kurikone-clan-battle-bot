@@ -2,18 +2,16 @@ import logging
 from typing import List
 
 import discord
+from discord.abc import GuildChannel
 from discord.ext import commands
 from discord.ui import Button, View, Modal, TextInput
 
 import utils
-from config import config
 from repository import *
-from utils import response_send_message
+from enums import *
 
 handler = logging.FileHandler(filename='discord.log', encoding='utf-8', mode='w')
 
-# Replace 'YOUR_BOT_TOKEN' with your actual bot token
-TOKEN = config['DISCORD_TOKEN']
 NEW_LINE = "\n"
 
 intents = discord.Intents.default()
@@ -44,8 +42,11 @@ async def on_guild_join(guild):
 async def setup_channel(guild):
     print(f'Setup for guild {guild.id} - {guild.name}')
     guild_id = guild.id
-    guild_channel_repository = GuildChannelRepository()
-    guild_channel = guild_channel_repository.get_guild_channel_by_guild_channel_id(guild_id=guild_id)
+    g_repo = GuildRepository()
+    guild_db = g_repo.get_by_guild_id(guild_id=guild_id)
+
+    if guild_db is None:
+        guild_db = g_repo.insert_guild(Guild(GuildId=guild.id, GuildName=guild.name))
 
     overwrites = {
         guild.default_role: discord.PermissionOverwrite(read_messages=True, send_messages=False),
@@ -56,125 +57,44 @@ async def setup_channel(guild):
         guild.default_role: discord.PermissionOverwrite(read_messages=True, send_messages=True),
     }
 
-    channels = {
-        'Category': {
-            'name': config['CATEGORY_CHANNEL_NAME'],
-            'type': 'category',
-            'overwrites': overwrites
-        },
-        'Report': {
-            'name': config['REPORT_CHANNEL_NAME'],
-            'type': 'text',
-            'overwrites': overwrites
-        },
-        'Boss1': {
-            'name': config['BOSS1_CHANNEL_NAME'],
-            'type': 'text',
-            'overwrites': overwrites
-        },
-        'Boss2': {
-            'name': config['BOSS2_CHANNEL_NAME'],
-            'type': 'text',
-            'overwrites': overwrites
-        },
-        'Boss3': {
-            'name': config['BOSS3_CHANNEL_NAME'],
-            'type': 'text',
-            'overwrites': overwrites
-        },
-        'Boss4': {
-            'name': config['BOSS4_CHANNEL_NAME'],
-            'type': 'text',
-            'overwrites': overwrites
-        },
-        'Boss5': {
-            'name': config['BOSS5_CHANNEL_NAME'],
-            'type': 'text',
-            'overwrites': overwrites
-        },
-        'TlShifter': {
-            'name': config['TL_SHIFTER_CHANNEL_NAME'],
-            'type': 'text',
-            'overwrites': overwrites_tl_shifter
-        }
-    }
+    gc_repo = GuildChannelRepository()
+    guild_channel = gc_repo.get_all_by_guild_id(guild_id=guild_db.GuildId)
 
-    if guild_channel is None:
-        # Create Category and all channels
-        category_channel = await guild.create_category(
-            channels['Category']['name'],
-            overwrites=channels['Category']['overwrites']
-        )
+    category_channel = None
+    processed_channel = []
 
-        created_channels = {}
+    # Channel Setup
+    for enum in ChannelEnum:
+        channel_data = next((channel for channel in guild_channel if channel.ChannelType == enum), None)
+        # Assume no Channel Exist for specific enum
+        if channel_data is None:
+            local_overwrites = overwrites
+            if enum == ChannelEnum.TL_SHIFTER:
+                local_overwrites = overwrites_tl_shifter
 
-        for channel_type, channel_config in channels.items():
-            if channel_type == 'Category':
-                continue  # Skip category since it's already created
-
-            channel = await guild.create_text_channel(
-                channel_config['name'],
-                category=category_channel,
-                overwrites=channel_config['overwrites']
-            )
-
-            created_channels[channel_type] = channel  # Store the created channel object
-
-        guild_channel = GuildChannel(
-            GuildId=guild_id,
-            CategoryId=category_channel.id,
-            ReportChannelId=created_channels['Report'].id,
-            Boss1ChannelId=created_channels['Boss1'].id,
-            Boss2ChannelId=created_channels['Boss2'].id,
-            Boss3ChannelId=created_channels['Boss3'].id,
-            Boss4ChannelId=created_channels['Boss4'].id,
-            Boss5ChannelId=created_channels['Boss5'].id,
-            TlShifterChannelId=created_channels['TlShifter'].id
-        )
-
-        guild_channel_repository.insert_guild_channel(guild_channel)
-
-    else:
-        # Update existing channels
-        category_channel = guild.get_channel(guild_channel.CategoryId)
-        if category_channel is None:
-            category_channel = await guild.create_category(
-                channels['Category']['name'],
-                overwrites=channels['Category']['overwrites']
-            )
-
-        for channel_type, channel_config in channels.items():
-            if channel_type == 'Category':
-                continue  # Skip category since it's already handled
-
-            channel = guild.get_channel(getattr(guild_channel, f"{channel_type}ChannelId"))
-            if channel is None:
+            if enum == ChannelEnum.CATEGORY:
+                channel = await guild.create_category(
+                    name=ChannelEnum.CATEGORY.value['name'],
+                    overwrites=overwrites
+                )
+                category_channel = channel
+            else:
                 channel = await guild.create_text_channel(
-                    channel_config['name'],
+                    name=enum.value['name'],
                     category=category_channel,
-                    overwrites=channel_config['overwrites']
+                    overwrites=local_overwrites
                 )
 
-                setattr(guild_channel, f"{channel_type}ChannelId", channel.id)
+            gc_repo.insert_channel(Channel(ChannelId=channel.id, GuildId=guild_db.GuildId, ChannelType=enum))
+            processed_channel.append((enum, channel))
+        else:
+            channel = guild.get_channel(channel_data.ChannelId)
+            processed_channel.append((enum, channel))
 
-        guild_channel = GuildChannel(
-            GuildId=guild_id,
-            CategoryId=category_channel.id,
-            ReportChannelId=guild_channel.ReportChannelId,
-            Boss1ChannelId=guild_channel.Boss1ChannelId,
-            Boss2ChannelId=guild_channel.Boss2ChannelId,
-            Boss3ChannelId=guild_channel.Boss3ChannelId,
-            Boss4ChannelId=guild_channel.Boss4ChannelId,
-            Boss5ChannelId=guild_channel.Boss5ChannelId,
-            TlShifterChannelId=guild_channel.TlShifterChannelId
-        )
-
-        guild_channel_repository.update_guild_channel(guild_channel)
-
-    await setup_message(guild, guild_channel=guild_channel)
+    await setup_message(guild, channels=processed_channel)
 
 
-async def setup_message(guild, guild_channel: GuildChannel):
+async def setup_message(guild, channels: list[tuple[ChannelEnum, GuildChannel]]):
     # Master CB Data
     clan_battle_period_repository = ClanBattlePeriodRepository()
     clan_battle_period = clan_battle_period_repository.get_current_running_clan_battle_period()
@@ -183,65 +103,66 @@ async def setup_message(guild, guild_channel: GuildChannel):
         print("Need setup on Database !")
         return
 
-    boss1_message = await check_or_generate_channel_message(guild, guild_channel.Boss1ChannelId)
-    boss2_message = await check_or_generate_channel_message(guild, guild_channel.Boss2ChannelId)
-    boss3_message = await check_or_generate_channel_message(guild, guild_channel.Boss3ChannelId)
-    boss4_message = await check_or_generate_channel_message(guild, guild_channel.Boss4ChannelId)
-    boss5_message = await check_or_generate_channel_message(guild, guild_channel.Boss5ChannelId)
-
-    await generate_clan_battle_boss_entry(message_id=boss1_message.id, boss_id=clan_battle_period.Boss1Id)
-    await generate_clan_battle_boss_entry(message_id=boss2_message.id, boss_id=clan_battle_period.Boss2Id)
-    await generate_clan_battle_boss_entry(message_id=boss3_message.id, boss_id=clan_battle_period.Boss3Id)
-    await generate_clan_battle_boss_entry(message_id=boss4_message.id, boss_id=clan_battle_period.Boss4Id)
-    await generate_clan_battle_boss_entry(message_id=boss5_message.id, boss_id=clan_battle_period.Boss5Id)
-
-    await boss1_message.edit(content="", embeds=create_embed_list(message_id=boss1_message.id), view=create_view())
-    await boss2_message.edit(content="", embeds=create_embed_list(message_id=boss2_message.id), view=create_view())
-    await boss3_message.edit(content="", embeds=create_embed_list(message_id=boss3_message.id), view=create_view())
-    await boss4_message.edit(content="", embeds=create_embed_list(message_id=boss4_message.id), view=create_view())
-    await boss5_message.edit(content="", embeds=create_embed_list(message_id=boss5_message.id), view=create_view())
+    for enum, channel in channels:
+        if "boss" in enum.name.lower():
+            message = await check_or_generate_channel_message(guild, channel_id=channel.id)
+            boss_id = getattr(clan_battle_period, f"{enum.value['type'].capitalize()}Id")
+            await generate_clan_battle_boss_entry(message_id=message.id, boss_id=boss_id)
+            await refresh_boss_message(message)
 
 
 # Book Button
 class BookButton(Button):
     def __init__(self):
-        super().__init__(label=Emoji.BOOK.name.capitalize(),
+        super().__init__(label=EmojiEnum.BOOK.name.capitalize(),
                          style=discord.ButtonStyle.primary,
-                         emoji=Emoji.BOOK.value,
+                         emoji=EmojiEnum.BOOK.value,
                          row=0)
 
     async def callback(self, interaction: discord.Interaction):
-        x_user = interaction.user
+        user_id = interaction.user.id
+        guild_id = interaction.guild_id
         message_id = interaction.message.id
-        if book_check(message_id=message_id, player_id=x_user.id):
-            await response_send_message(interaction=interaction, message="## Already booked !")
-        else:
-            ephemeral_view = View()
-            ephemeral_view.add_item(BookPatkButton(interaction.message.id))
-            ephemeral_view.add_item(BookMatkButton(interaction.message.id))
-            ephemeral_view.add_item(BookCancelButton())
-            await interaction.response.send_message("## Choose your Entry Type", view=ephemeral_view, ephemeral=True)
+        if book_check_by_guild_id(guild_id=interaction.guild_id, player_id=user_id):
+            await utils.discord_resp_send_msg(interaction=interaction, message="## Already booked !")
+            return
+
+        cb_overall_repo = ClanBattleOverallEntryRepository()
+        entry_count = cb_overall_repo.get_entry_count_by_guild_id_and_player_id(guild_id=guild_id, player_id=user_id)
+
+        disable = entry_count == 3
+
+        ephemeral_view = View(timeout=None)
+        ephemeral_view.add_item(BookPatkButton(message_id=message_id, disable=disable))
+        ephemeral_view.add_item(BookMatkButton(message_id=message_id, disable=disable))
+        ephemeral_view.add_item(BookCancelButton())
+
+        # generate Leftover ?
+        leftover = cb_overall_repo.get_leftover_by_guild_id_and_player_id(guild_id=guild_id, player_id=user_id)
+        for left_data in leftover:
+            ephemeral_view.add_item(BookLeftoverButton(leftover=left_data, message_id=message_id))
+
+        await interaction.response.send_message(f"## Choose your Entry Type [{entry_count}/3]", view=ephemeral_view,
+                                                ephemeral=True, delete_after=15)
 
 
 # Cancel Button
 class CancelButton(Button):
     def __init__(self):
-        super().__init__(label=Emoji.CANCEL.name.capitalize(),
+        super().__init__(label=EmojiEnum.CANCEL.name.capitalize(),
                          style=discord.ButtonStyle.danger,
-                         emoji=Emoji.CANCEL.value,
+                         emoji=EmojiEnum.CANCEL.value,
                          row=0)
 
     async def callback(self, interaction: discord.Interaction):
-        cb_boss_player_entry_repository = ClanBattleBossPlayerEntryRepository()
-        x_user = cb_boss_player_entry_repository.get_single_book_by_message_id_and_player_id(
+        cb_book_repository = ClanBattleBossBookRepository()
+        x_user = cb_book_repository.get_one_by_message_id_and_player_id(
             message_id=interaction.message.id,
             player_id=interaction.user.id)
 
         if x_user:
-            cb_boss_player_entry_repository.delete_book_by_message_id_and_player_id(
-                clan_battle_boss_player_entry_id=x_user.ClanBattleBossPlayerEntryId)
-            await interaction.message.edit(embeds=create_embed_list(message_id=interaction.message.id),
-                                           view=create_view())
+            cb_book_repository.delete_book_by_id(clan_battle_boss_book_id=x_user.ClanBattleBossBookId)
+            await refresh_boss_message(interaction.message)
 
         await interaction.response.defer(ephemeral=True)
 
@@ -249,16 +170,14 @@ class CancelButton(Button):
 # Entry Button
 class EntryButton(Button):
     def __init__(self):
-        super().__init__(label=Emoji.ENTRY.name.capitalize(),
+        super().__init__(label=EmojiEnum.ENTRY.name.capitalize(),
                          style=discord.ButtonStyle.primary,
-                         emoji=Emoji.ENTRY.value,
+                         emoji=EmojiEnum.ENTRY.value,
                          row=1)
 
     async def callback(self, interaction: discord.Interaction):
-        x_user = interaction.user
-        message_id = interaction.message.id
-        if not book_check(message_id=message_id, player_id=x_user.id):
-            await utils.response_send_message(interaction=interaction, message="## Not Booked")
+        if not book_check_by_message_id(message_id=interaction.message.id, player_id=interaction.user.id):
+            await utils.discord_resp_send_msg(interaction=interaction, message="## Not Booked")
 
         modal = EntryInputModal()
         await interaction.response.send_modal(modal)
@@ -268,39 +187,102 @@ class EntryButton(Button):
 class EntryInputModal(Modal, title="Entry Input"):
     # Define a text input
     user_input = TextInput(
-        label="Entry Damage (in Million)",
-        placeholder="0000",
+        label="Entry Damage",
+        placeholder="123456789",
         style=discord.TextStyle.short,
         required=True,
         min_length=1,
-        max_length=100
+        max_length=10
     )
 
     async def on_submit(self, interaction: discord.Interaction):
+        user_id = interaction.user.id
+        message_id = interaction.message.id
         # Handle the submitted input
-        if not self.user_input.value.isnumeric():
-            await utils.response_send_message(interaction=interaction, message=f"## Number Only !")
+        if not self.user_input.value.isdigit():
+            await utils.discord_resp_send_msg(interaction=interaction, message=f"## Number only !")
             return
-        if int(self.user_input.value) == 0:
-            await utils.response_send_message(interaction=interaction, message=f"## Higher than 0 !")
+        if int(self.user_input.value) < 1:
+            await utils.discord_resp_send_msg(interaction=interaction, message=f"## Must be higher than 0 !")
             return
-        await utils.response_send_message(interaction=interaction,
-                                          message=f"Entry Damage Input : {self.user_input.value}")
+
+        # Update damage
+        cb_book_repository = ClanBattleBossBookRepository()
+        book = cb_book_repository.get_one_by_message_id_and_player_id(message_id=message_id, player_id=user_id)
+        damage = int(self.user_input.value)
+        cb_book_repository.update_damage_boss_book_by_id(clan_battle_boss_book_id=book.ClanBattleBossEntryId,
+                                                         damage=damage)
+
+        # Refresh Messages
+        message = await utils.discord_try_fetch_message(channel=interaction.channel, message_id=message_id)
+        if message:
+            await refresh_boss_message(message)
+
+        await interaction.response.defer(ephemeral=True)
 
 
 # Done Button
 class DoneButton(Button):
     def __init__(self):
-        super().__init__(label=Emoji.DONE.name.capitalize(),
+        super().__init__(label=EmojiEnum.DONE.name.capitalize(),
                          style=discord.ButtonStyle.green,
-                         emoji=Emoji.DONE.value,
+                         emoji=EmojiEnum.DONE.value,
                          row=1)
 
     async def callback(self, interaction: discord.Interaction):
-        x_user = interaction.user
+        user_id = interaction.user.id
+        display_name = interaction.user.display_name
         message_id = interaction.message.id
-        if not book_check(message_id=message_id, player_id=x_user.id):
-            await utils.response_send_message(interaction=interaction, message="## Not Booked")
+        guild_id = interaction.guild_id
+        if not book_check_by_message_id(message_id=message_id, player_id=user_id):
+            await utils.discord_resp_send_msg(interaction=interaction, message="## Not booked")
+            return
+
+        cb_book_repository = ClanBattleBossBookRepository()
+        boss_book = cb_book_repository.get_one_by_message_id_and_player_id(message_id=message_id,
+                                                                           player_id=user_id)
+        if boss_book.Damage == 0:
+            await utils.discord_resp_send_msg(interaction=interaction, message="## Input entry first !")
+            return
+
+        # Get CB Entry
+        cb_boss_repo = ClanBattleBossEntryRepository()
+        boss_entry = cb_boss_repo.get_last_by_message_id(message_id=message_id)
+
+        cb_period_repo = ClanBattlePeriodRepository()
+        period = cb_period_repo.get_current_running_clan_battle_period()
+
+        cb_book_repository.delete_book_by_id(clan_battle_boss_book_id=boss_book.ClanBattleBossBookId)
+
+        # Prepare insert into overall Entry
+        cb_overall_repository = ClanBattleOverallEntryRepository()
+        overall = cb_overall_repository.insert(
+            cb_overall_entry=ClanBattleOverallEntry(
+                GuildId=guild_id,
+                ClanBattlePeriodId=period.ClanBattlePeriodId,
+                ClanBattleBossId=boss_entry.ClanBattleBossId,
+                PlayerId=user_id,
+                PlayerName=display_name,
+                Round=boss_entry.Round,
+                AttackType=boss_book.AttackType,
+                Damage=boss_book.Damage
+            )
+        )
+
+        if not boss_book.ClanBattleOverallEntryId is None:
+            cb_overall_repository.update_overall_link(cb_overall_entry_id=boss_book.ClanBattleOverallEntryId,
+                                                      overall_parent_entry_id=overall.ClanBattleOverallEntryId)
+
+        # Update Boss Entry
+        cb_boss_repo.update_on_attack(clan_battle_boss_entry_id=boss_entry.ClanBattleBossEntryId,
+                                      current_health=utils.reduce_health(boss_entry.CurrentHealth, boss_book.Damage))
+
+        # Refresh Messages
+        message = await utils.discord_try_fetch_message(channel=interaction.channel, message_id=message_id)
+        if message:
+            await refresh_boss_message(message=message)
+
+        await interaction.response.defer(ephemeral=True)
 
 
 # Dead Button
@@ -308,14 +290,21 @@ class DeadButton(Button):
     def __init__(self):
         super().__init__(label="Dead",
                          style=discord.ButtonStyle.gray,
-                         emoji=Emoji.FINISH.value,
+                         emoji=EmojiEnum.FINISH.value,
                          row=1)
 
     async def callback(self, interaction: discord.Interaction):
-        x_user = interaction.user
+        user_id = interaction.user.id
         message_id = interaction.message.id
-        if not book_check(message_id=message_id, player_id=x_user.id):
-            await utils.response_send_message(interaction=interaction, message="## Not Booked")
+        if not book_check_by_message_id(message_id=message_id, player_id=user_id):
+            await utils.discord_resp_send_msg(interaction=interaction, message="## Not Booked")
+
+        cb_book_repository = ClanBattleBossBookRepository()
+        book = cb_book_repository.get_one_by_message_id_and_player_id(message_id=message_id,
+                                                                      player_id=user_id)
+        if book.Damage == 0:
+            await utils.discord_resp_send_msg(interaction=interaction, message="## Input entry first !")
+            return
 
         modal = LeftoverInputModal()
         await interaction.response.send_modal(modal)
@@ -335,111 +324,165 @@ class LeftoverInputModal(Modal, title="Leftover Input"):
 
     async def on_submit(self, interaction: discord.Interaction):
         # Handle the submitted input
-        await utils.response_send_message(interaction=interaction,
+        await utils.discord_resp_send_msg(interaction=interaction,
                                           message=f"Boss Leftover Input Time : {self.user_input.value}")
 
 
-def generate_done_attack_list(datas: List[ClanBattleBossPlayerEntry]) -> str:
-    lines = [f"===== {Emoji.DONE.value} Done List ====={NEW_LINE}"]
+def generate_done_attack_list(datas: List[ClanBattleOverallEntry]) -> str:
+    lines = [f"========== {EmojiEnum.DONE.value} Done List =========="]
     for data in datas:
-        lines.append(
-            f"{Emoji[data.AttackType].value} {utils.format_large_number(data.Damage)}: {data.PlayerName}{NEW_LINE}"
-        )
+        line = f"{NEW_LINE}{data.AttackType.value} {f"[{utils.format_large_number(data.Damage)}] " if data.Damage != 0 else ''}: {data.PlayerName}"
+        if data.LeftoverTime:
+            line += f"{NEW_LINE} ┗━ {EmojiEnum.STAR.value} ({data.LeftoverTime}s)"
+
+        lines.append(line)
 
     return f"```powershell{NEW_LINE}" + "".join(lines) + "```"
 
 
-def generate_book_list(datas: List[ClanBattleBossPlayerEntry]) -> str:
-    lines = [f"===== {Emoji.ENTRY.value} Book List ====={NEW_LINE}"]
+def generate_book_list(datas: List[ClanBattleBossBook]) -> str:
+    lines = [f"========== {EmojiEnum.ENTRY.value} Book List =========="]
     for data in datas:
-        line = f"{Emoji[data.AttackType].value} {utils.format_large_number(data.Damage) if data.Damage != 0 else ''}: {data.PlayerName}"
-        lines.append(line + NEW_LINE)
+        line = f"{NEW_LINE}{data.AttackType.value}{f"({data.LeftoverTime}s)" if data.LeftoverTime != 0 else ''} {f"[{utils.format_large_number(data.Damage)}] " if data.Damage != 0 else ''}: {data.PlayerName}"
+        lines.append(line)
 
     return f"```powershell{NEW_LINE}" + "".join(lines) + "```"
 
 
 # PATK Button
 class BookPatkButton(Button):
-    def __init__(self, message_id: int):
-        super().__init__(label=Emoji.PATK.name,
-                         style=discord.ButtonStyle.green,
-                         emoji=Emoji.PATK.value,
+    def __init__(self, message_id: int, disable: bool):
+        self.local_emoji = EmojiEnum.PATK
+        self.attack_type = AttackTypeEnum.PATK
+        self.message_id = message_id
+
+        super().__init__(label=self.local_emoji.name,
+                         style=discord.ButtonStyle.blurple,
+                         emoji=self.local_emoji.value,
+                         disabled=disable,
                          row=0)
         self.message_id = message_id
 
     async def callback(self, interaction: discord.Interaction):
-        user = interaction.user
-        cb_boss_player_entry_repository = ClanBattleBossPlayerEntryRepository()
-        x_user = cb_boss_player_entry_repository.get_single_book_by_message_id_and_player_id(message_id=self.message_id,
-                                                                                             player_id=user.id)
-        if x_user:
-            await interaction.response.defer(ephemeral=True)
-            await interaction.delete_original_response()
+        user_id = interaction.user.id
+        display_name = interaction.user.display_name
+
+        cb_book_repository = ClanBattleBossBookRepository()
+        x_user = cb_book_repository.check_book_count_by_player_id(guild_id=interaction.guild_id, player_id=user_id)
+        if x_user > 0:
+            await utils.discord_close_response(interaction=interaction)
             return
 
-        message = await utils.try_fetch_message(channel=interaction.channel, message_id=self.message_id)
+        message = await utils.discord_try_fetch_message(channel=interaction.channel, message_id=self.message_id)
 
         # Insert to Db first !
-        cb_boss_entry_repository = ClanBattleBossEntryRepository()
-        cb_boss_entry = cb_boss_entry_repository.get_last_by_message_id(message_id=message.id)
+        cb_entry_repository = ClanBattleBossEntryRepository()
+        cb_boss_entry = cb_entry_repository.get_last_by_message_id(message_id=message.id)
 
-        cb_boss_player_entry = ClanBattleBossPlayerEntry(ClanBattleBossEntryId=cb_boss_entry.ClanBattleBossEntryId,
-                                                         PlayerId=user.id,
-                                                         PlayerName=user.name,
-                                                         AttackType=Emoji.PATK.name,
-                                                         Damage=0,
-                                                         IsDoneEntry=False
-                                                         )
+        cb_book = ClanBattleBossBook(
+            ClanBattleBossEntryId=cb_boss_entry.ClanBattleBossEntryId,
+            PlayerId=user_id,
+            PlayerName=display_name,
+            AttackType=self.attack_type
+        )
 
-        cb_boss_player_entry_repository.insert_clan_battle_boss_player_book_entry(
-            clan_battle_boss_player_entry=cb_boss_player_entry)
+        cb_book_repository.insert_boss_book_entry(clan_battle_boss_book=cb_book)
 
-        await message.edit(embeds=create_embed_list(message_id=message.id), view=create_view())
-        await interaction.response.defer(ephemeral=True)
-        await interaction.delete_original_response()
-        await interaction.channel.send(content=f"{interaction.user.name} {Emoji.PATK.value} added to book list.",
+        await refresh_boss_message(message)
+        await utils.discord_close_response(interaction=interaction)
+        await interaction.channel.send(content=f"{display_name} {self.local_emoji.value} added to book list.",
                                        delete_after=config['MESSAGE_DEFAULT_DELETE_AFTER'])
 
 
 # MATK Button
 class BookMatkButton(Button):
-    def __init__(self, message_id: int):
-        super().__init__(label=Emoji.MATK.name,
+    def __init__(self, message_id: int, disable: bool):
+        self.local_emoji = EmojiEnum.MATK
+        self.attack_type = AttackTypeEnum.MATK
+        self.message_id = message_id
+
+        super().__init__(label=self.local_emoji.name,
                          style=discord.ButtonStyle.blurple,
-                         emoji=Emoji.MATK.value,
+                         emoji=self.local_emoji.value,
+                         disabled=disable,
                          row=0)
         self.message_id = message_id
 
     async def callback(self, interaction: discord.Interaction):
-        user = interaction.user
-        cb_boss_player_entry_repository = ClanBattleBossPlayerEntryRepository()
-        x_user = cb_boss_player_entry_repository.get_single_book_by_message_id_and_player_id(message_id=self.message_id,
-                                                                                             player_id=user.id)
-        if x_user:
-            await interaction.delete_original_response()
+        user_id = interaction.user.id
+        display_name = interaction.user.display_name
+
+        cb_book_repository = ClanBattleBossBookRepository()
+        x_user = cb_book_repository.check_book_count_by_player_id(guild_id=interaction.guild_id, player_id=user_id)
+        if x_user > 0:
+            await utils.discord_close_response(interaction=interaction)
             return
 
-        message = await utils.try_fetch_message(channel=interaction.channel, message_id=self.message_id)
+        message = await utils.discord_try_fetch_message(channel=interaction.channel, message_id=self.message_id)
 
         # Insert to Db first !
-        cb_boss_entry_repository = ClanBattleBossEntryRepository()
-        cb_boss_entry = cb_boss_entry_repository.get_last_by_message_id(message_id=message.id)
+        cb_entry_repository = ClanBattleBossEntryRepository()
+        cb_boss_entry = cb_entry_repository.get_last_by_message_id(message_id=message.id)
 
-        cb_boss_player_entry = ClanBattleBossPlayerEntry(ClanBattleBossEntryId=cb_boss_entry.ClanBattleBossEntryId,
-                                                         PlayerId=user.id,
-                                                         PlayerName=user.name,
-                                                         AttackType=Emoji.MATK.name,
-                                                         Damage=0,
-                                                         IsDoneEntry=False
-                                                         )
+        cb_book = ClanBattleBossBook(
+            ClanBattleBossEntryId=cb_boss_entry.ClanBattleBossEntryId,
+            PlayerId=user_id,
+            PlayerName=display_name,
+            AttackType=self.attack_type
+        )
 
-        cb_boss_player_entry_repository.insert_clan_battle_boss_player_book_entry(
-            clan_battle_boss_player_entry=cb_boss_player_entry)
+        cb_book_repository.insert_boss_book_entry(clan_battle_boss_book=cb_book)
 
-        await message.edit(embeds=create_embed_list(message.id), view=create_view())
-        await interaction.response.defer(ephemeral=True)
-        await interaction.delete_original_response()
-        await interaction.channel.send(content=f"{interaction.user.name} {Emoji.MATK.value} added to book list.",
+        await refresh_boss_message(message)
+        await utils.discord_close_response(interaction=interaction)
+        await interaction.channel.send(content=f"{display_name} {self.local_emoji.value} added to book list.",
+                                       delete_after=config['MESSAGE_DEFAULT_DELETE_AFTER'])
+
+
+# Leftover Button
+class BookLeftoverButton(Button):
+    def __init__(self, leftover: ClanBattleLeftover, message_id: int):
+        self.local_emoji = EmojiEnum.CARRY
+        self.attack_type = AttackTypeEnum.CARRY
+        self.message_id = message_id
+        self.parent_overall_id = leftover.ClanBattleOverallEntryId
+        self.label_string = f"{leftover.AttackType.value} {leftover.LeftoverTime}s ({leftover.ClanBattleBossName})"
+        self.leftover_time = leftover.LeftoverTime
+
+        super().__init__(label=self.label_string,
+                         style=discord.ButtonStyle.success,
+                         emoji=self.local_emoji.value,
+                         row=1)
+
+    async def callback(self, interaction: discord.Interaction):
+        user_id = interaction.user.id
+        username = interaction.user.display_name
+        cb_book_repository = ClanBattleBossBookRepository()
+        x_user = cb_book_repository.check_book_count_by_player_id(guild_id=interaction.guild_id, player_id=user_id)
+        if x_user > 0:
+            await utils.discord_close_response(interaction=interaction)
+            return
+
+        message = await utils.discord_try_fetch_message(channel=interaction.channel, message_id=self.message_id)
+
+        # Insert to Db first !
+        cb_entry_repository = ClanBattleBossEntryRepository()
+        cb_boss_entry = cb_entry_repository.get_last_by_message_id(message_id=message.id)
+
+        cb_book = ClanBattleBossBook(
+            ClanBattleBossEntryId=cb_boss_entry.ClanBattleBossEntryId,
+            PlayerId=user_id,
+            PlayerName=username,
+            AttackType=self.attack_type,
+            LeftoverTime=self.leftover_time,
+            ClanBattleOverallEntryId=self.parent_overall_id
+        )
+
+        cb_book_repository.insert_boss_book_entry(clan_battle_boss_book=cb_book)
+
+        await refresh_boss_message(message)
+        await utils.discord_close_response(interaction=interaction)
+        await interaction.channel.send(content=f"{username} {self.local_emoji.value} added to book list.",
                                        delete_after=config['MESSAGE_DEFAULT_DELETE_AFTER'])
 
 
@@ -448,33 +491,34 @@ class BookCancelButton(Button):
     def __init__(self):
         super().__init__(label="Cancel",
                          style=discord.ButtonStyle.red,
-                         emoji=Emoji.CANCEL.value,
+                         emoji=EmojiEnum.CANCEL.value,
                          row=0)
 
     async def callback(self, interaction: discord.Interaction):
-        await interaction.delete_original_response()
+        await utils.discord_close_response(interaction=interaction)
 
 
-def create_header_embed(cb_boss_entry: ClanBattleBossEntry):
+def create_header_embed(cb_boss_entry: ClanBattleBossEntry, include_image: bool = True):
     embed = discord.Embed(
         title=f"{cb_boss_entry.Name} (Round {cb_boss_entry.Round})",
         description=f"# HP : {utils.format_large_number(cb_boss_entry.CurrentHealth)} / {utils.format_large_number(cb_boss_entry.MaxHealth)}",
         color=discord.Color.red()
     )
-    embed.set_image(url=cb_boss_entry.Image)
+    if include_image:
+        embed.set_image(url=cb_boss_entry.Image)
     return embed
 
 
-def create_done_embed(list_boss_cb_player_entries: List[ClanBattleBossPlayerEntry]):
+def create_done_embed(list_cb_overall_entry: List[ClanBattleOverallEntry]):
     embed = discord.Embed(
         title="",
-        description=generate_done_attack_list(list_boss_cb_player_entries),
+        description=generate_done_attack_list(list_cb_overall_entry),
         color=discord.Color.green(),
     )
     return embed
 
 
-def create_book_embed(list_boss_cb_player_entries: List[ClanBattleBossPlayerEntry]):
+def create_book_embed(list_boss_cb_player_entries: List[ClanBattleBossBook]):
     embed = discord.Embed(
         title="",
         description=generate_book_list(list_boss_cb_player_entries),
@@ -483,18 +527,47 @@ def create_book_embed(list_boss_cb_player_entries: List[ClanBattleBossPlayerEntr
     return embed
 
 
-def create_embed_list(message_id: int) -> List[discord.Embed]:
-    clan_battle_boss_entry_repository = ClanBattleBossEntryRepository()
-    clan_battle_boss_entry = clan_battle_boss_entry_repository.get_last_by_message_id(message_id=message_id)
+async def refresh_boss_message(message):
+    embeds = []
+    message_id = message.id
+    guild_id = message.guild.id
 
-    cb_boss_player_entry_repository = ClanBattleBossPlayerEntryRepository()
-    list_boss_cb_player_entries = cb_boss_player_entry_repository.get_all_by_message_id(message_id=message_id)
+    # Header
+    cb_entry_repository = ClanBattleBossEntryRepository()
+    clan_battle_boss_entry = cb_entry_repository.get_last_by_message_id(message_id=message_id)
+    embeds.append(create_header_embed(clan_battle_boss_entry))
 
-    book_entries = []
-    done_entries = []
-    if len(list_boss_cb_player_entries) > 0:
-        book_entries = [entry for entry in list_boss_cb_player_entries if not entry.IsDoneEntry]
-        done_entries = [entry for entry in list_boss_cb_player_entries if entry.IsDoneEntry]
+    # Entry
+    cb_overall_repository = ClanBattleOverallEntryRepository()
+    done_entries = cb_overall_repository.get_all_by_guild_id_boss_id_and_round(guild_id=guild_id,
+                                                                               clan_battle_boss_id=clan_battle_boss_entry.ClanBattleBossId,
+                                                                               boss_round=clan_battle_boss_entry.Round)
+
+    if len(done_entries) > 0:
+        embeds.append(create_done_embed(done_entries))
+
+
+    # Book
+    cb_book_repository = ClanBattleBossBookRepository()
+    book_entries = cb_book_repository.get_all_by_message_id(message_id=message_id)
+
+    if len(book_entries) > 0:
+        embeds.append(create_book_embed(book_entries))
+
+    await message.edit(embeds=embeds, view=create_view())
+
+
+def create_embed_list(guild_id: int, message_id: int) -> List[discord.Embed]:
+    cb_entry_repository = ClanBattleBossEntryRepository()
+    clan_battle_boss_entry = cb_entry_repository.get_last_by_message_id(message_id=message_id)
+
+    cb_book_repository = ClanBattleBossBookRepository()
+    book_entries = cb_book_repository.get_all_by_message_id(message_id=message_id)
+
+    cb_overall_repository = ClanBattleOverallEntryRepository()
+    done_entries = cb_overall_repository.get_all_by_guild_id_boss_id_and_round(guild_id=guild_id,
+                                                                               clan_battle_boss_id=clan_battle_boss_entry.ClanBattleBossId,
+                                                                               boss_round=clan_battle_boss_entry.Round)
 
     return [create_header_embed(clan_battle_boss_entry), create_done_embed(done_entries),
             create_book_embed(book_entries)]
@@ -510,9 +583,14 @@ def create_view() -> View:
     return view
 
 
-def book_check(message_id: int, player_id: int):
-    cb_boss_entry_player_repository = ClanBattleBossPlayerEntryRepository()
-    return cb_boss_entry_player_repository.get_single_book_by_message_id_and_player_id(message_id, player_id)
+def book_check_by_guild_id(guild_id: int, player_id: int):
+    cb_book_repository = ClanBattleBossBookRepository()
+    return cb_book_repository.check_book_count_by_player_id(guild_id=guild_id, player_id=player_id)
+
+
+def book_check_by_message_id(message_id: int, player_id: int):
+    cb_book_repository = ClanBattleBossBookRepository()
+    return cb_book_repository.get_one_by_message_id_and_player_id(message_id=message_id, player_id=player_id)
 
 
 async def check_or_generate_channel_message(guild, channel_id: int):
@@ -529,7 +607,7 @@ async def check_or_generate_channel_message(guild, channel_id: int):
         )
         channel_message_repository.insert_channel_message(channel_message)
 
-    message = await utils.try_fetch_message(channel, channel_message.MessageId)
+    message = await utils.discord_try_fetch_message(channel, channel_message.MessageId)
     if message is None:
         message = await channel.send(content="Preparing data . . .")
         channel_message = ChannelMessage(
@@ -541,37 +619,15 @@ async def check_or_generate_channel_message(guild, channel_id: int):
     return message
 
 
-async def generate_clan_battle_boss_entry(message_id: int, boss_id: int, gen_next_round: bool = False):
-    clan_battle_boss_entry_repository = ClanBattleBossEntryRepository()
-    clan_battle_boss_entry = clan_battle_boss_entry_repository.get_last_by_message_id(message_id=message_id)
+async def generate_clan_battle_boss_entry(message_id: int, boss_id: int):
+    cb_entry_repo = ClanBattleBossEntryRepository()
+    cb_entry = cb_entry_repo.get_last_by_message_id(message_id=message_id)
 
-    # For Next ?
-    if gen_next_round:
-        next_round = clan_battle_boss_entry.round + 1
-        clan_battle_boss_repository = ClanBattleBossRepository()
-        clan_battle_boss = clan_battle_boss_repository.get_one_by_clan_battle_boss_id(clan_battle_boss_id=boss_id)
-
-        clan_battle_boss_health_repository = ClanBattleBossHealthRepository()
-        clan_battle_boss_health = clan_battle_boss_health_repository.get_one_by_position_and_round(
-            position=clan_battle_boss.position, round=next_round)
-
-        if clan_battle_boss and clan_battle_boss_health:
-            clan_battle_boss_entry = ClanBattleBossEntry(
-                MessageId=message_id,
-                BossId=clan_battle_boss.boss_id,
-                Name=f"{clan_battle_boss.Name} 「{clan_battle_boss.Description}」",
-                Image=clan_battle_boss.ImagePath,
-                Round=next_round,
-                CurrentHealth=clan_battle_boss_health.health,
-                MaxHealth=clan_battle_boss_health.health,
-            )
-
-            clan_battle_boss_entry_repository.insert_clan_battle_boss_entry(clan_battle_boss_entry)
-
-            return clan_battle_boss_entry
+    cb_period_repo = ClanBattlePeriodRepository()
+    cb_period = cb_period_repo.get_current_running_clan_battle_period()
 
     # treat as new
-    if clan_battle_boss_entry is None:
+    if cb_entry is None:
 
         clan_battle_boss_repository = ClanBattleBossRepository()
         clan_battle_boss = clan_battle_boss_repository.get_one_by_clan_battle_boss_id(clan_battle_boss_id=boss_id)
@@ -581,9 +637,10 @@ async def generate_clan_battle_boss_entry(message_id: int, boss_id: int, gen_nex
             position=clan_battle_boss.Position, round=1)
 
         if clan_battle_boss and clan_battle_boss_health:
-            clan_battle_boss_entry = ClanBattleBossEntry(
+            cb_entry = ClanBattleBossEntry(
                 MessageId=message_id,
-                BossId=clan_battle_boss.ClanBattleBossId,
+                ClanBattlePeriodId=cb_period.ClanBattlePeriodId,
+                ClanBattleBossId=clan_battle_boss.ClanBattleBossId,
                 Name=f"{clan_battle_boss.Name} 「{clan_battle_boss.Description}」",
                 Image=clan_battle_boss.ImagePath,
                 Round=1,
@@ -591,10 +648,66 @@ async def generate_clan_battle_boss_entry(message_id: int, boss_id: int, gen_nex
                 MaxHealth=clan_battle_boss_health.Health,
             )
 
-            clan_battle_boss_entry_repository.insert_clan_battle_boss_entry(clan_battle_boss_entry)
-            return clan_battle_boss_entry
+            cb_entry_repo.insert_clan_battle_boss_entry(cb_entry)
+            return cb_entry
 
-    return clan_battle_boss_entry
+    return cb_entry
 
 
-bot.run(TOKEN, log_handler=handler)
+async def generate_next_clan_battle_boss_entry(interaction: discord.interactions.Interaction, boss_id: int):
+    message_id = interaction.message.id
+    guild_id = interaction.guild_id
+    channel_id = interaction.channel.id
+    clan_battle_boss_entry_repository = ClanBattleBossEntryRepository()
+    cb_boss_entry = clan_battle_boss_entry_repository.get_last_by_message_id(message_id=message_id)
+
+    # Edit Old one
+    current_message = await utils.discord_try_fetch_message(channel=interaction.channel, message_id=message_id)
+    if current_message:
+        cb_overall_repository = ClanBattleOverallEntryRepository()
+        done_entries = cb_overall_repository.get_all_by_guild_id_boss_id_and_round(guild_id=guild_id,
+                                                                                   clan_battle_boss_id=cb_boss_entry.ClanBattleBossId,
+                                                                                   boss_round=cb_boss_entry.Round)
+
+        current_message.edit(embeds=[create_header_embed(cb_boss_entry=cb_boss_entry, include_image=False),
+                                     create_done_embed(done_entries)])
+
+    # Generate New One
+    cm_repo = ChannelMessageRepository()
+
+    new_message = await interaction.channel.send(content="Preparing data . . .")
+    channel_message = ChannelMessage(
+        ChannelId=channel_id,
+        MessageId=new_message.id,
+    )
+    cm_repo.update_channel_message(channel_message)
+
+    next_round = cb_boss_entry.round + 1
+    clan_battle_boss_repository = ClanBattleBossRepository()
+    clan_battle_boss = clan_battle_boss_repository.get_one_by_clan_battle_boss_id(clan_battle_boss_id=boss_id)
+
+    clan_battle_boss_health_repository = ClanBattleBossHealthRepository()
+    clan_battle_boss_health = clan_battle_boss_health_repository.get_one_by_position_and_round(
+        position=clan_battle_boss.position, round=next_round)
+
+    cb_period_repo = ClanBattlePeriodRepository()
+    cb_period = cb_period_repo.get_current_running_clan_battle_period()
+
+    if clan_battle_boss and clan_battle_boss_health:
+        cb_boss_entry = ClanBattleBossEntry(
+            MessageId=message_id,
+            ClanBattlePeriodId=cb_period.ClanBattlePeriodId,
+            ClanBattleBossId=clan_battle_boss.boss_id,
+            Name=f"{clan_battle_boss.Name} 「{clan_battle_boss.Description}」",
+            Image=clan_battle_boss.ImagePath,
+            Round=next_round,
+            CurrentHealth=clan_battle_boss_health.health,
+            MaxHealth=clan_battle_boss_health.health,
+        )
+
+        clan_battle_boss_entry_repository.insert_clan_battle_boss_entry(cb_boss_entry)
+
+    await refresh_boss_message(new_message)
+
+
+bot.run(config['DISCORD_TOKEN'], log_handler=handler)

@@ -1,103 +1,120 @@
-# repository.py
 import mariadb
 
 from database import MariaDBConnectionPool
 from models import *
 
-class GuildChannelRepository:
+
+class GuildRepository:
     def __init__(self):
         self.pool = MariaDBConnectionPool()
 
-    def get_guild_channel_by_guild_channel_id(self, guild_id: int):
+    def get_by_guild_id(self, guild_id: int):
         try:
             with MariaDBConnectionPool() as conn:
                 with conn.cursor(dictionary=True) as cursor:
                     cursor.execute(
                         """
                         SELECT guild_id,
-                               category_id,
-                               report_channel_id,
-                               boss_1_channel_id,
-                               boss_2_channel_id,
-                               boss_3_channel_id,
-                               boss_4_channel_id,
-                               boss_5_channel_id,
-                               tl_shifter_channel_id
-                        FROM guild_channel
+                               guild_name
+                        FROM guild
                         WHERE guild_id = ?
                         """,
                         (guild_id,)
                     )
                     result = cursor.fetchone()
                     if result:
-                        return GuildChannel(GuildId=result['guild_id'],
-                                          CategoryId=result['category_id'],
-                                          ReportChannelId=result['report_channel_id'],
-                                          Boss1ChannelId=result['boss_1_channel_id'],
-                                          Boss2ChannelId=result['boss_2_channel_id'],
-                                          Boss3ChannelId=result['boss_3_channel_id'],
-                                          Boss4ChannelId=result['boss_4_channel_id'],
-                                          Boss5ChannelId=result['boss_5_channel_id'],
-                                          TlShifterChannelId=result['tl_shifter_channel_id']
-                                          )
+                        return Guild(
+                            GuildId=result['guild_id'],
+                            GuildName=result['guild_name']
+                        )
                     return None
         except mariadb.Error as e:
             print(f"Database error: {e}")
 
-    def insert_guild_channel(self, guild_channel: GuildChannel):
+    def insert_guild(self, guild: Guild):
         try:
             with MariaDBConnectionPool() as conn:
                 with conn.cursor(dictionary=True) as cursor:
                     cursor.execute(
                         """
-                        INSERT INTO guild_channel (guild_id, category_id, report_channel_id, boss_1_channel_id, boss_2_channel_id,
-                           boss_3_channel_id, boss_4_channel_id, boss_5_channel_id, tl_shifter_channel_id)
-                        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                        INSERT INTO guild (
+                            guild_id, 
+                            guild_name
+                            )
+                        VALUES (?, ?)
                         """,
-                        (guild_channel.GuildId,
-                         guild_channel.CategoryId,
-                         guild_channel.ReportChannelId,
-                         guild_channel.Boss1ChannelId,
-                         guild_channel.Boss2ChannelId,
-                         guild_channel.Boss3ChannelId,
-                         guild_channel.Boss4ChannelId,
-                         guild_channel.Boss5ChannelId,
-                         guild_channel.TlShifterChannelId)
+                        (
+                            guild.GuildId,
+                            guild.GuildName,
+                        )
                     )
                     conn.commit()
+                    return guild
         except mariadb.Error as e:
+            print(f"Database error: {e}")
             conn.rollback()
 
-    def update_guild_channel(self, guild_channel: GuildChannel):
+
+class GuildChannelRepository:
+    def __init__(self):
+        self.pool = MariaDBConnectionPool()
+
+    def get_all_by_guild_id(self, guild_id: int):
         try:
             with MariaDBConnectionPool() as conn:
                 with conn.cursor(dictionary=True) as cursor:
                     cursor.execute(
                         """
-                        UPDATE guild_channel
-                            SET category_id = ?, 
-                                report_channel_id = ?, 
-                                boss_1_channel_id = ?, 
-                                boss_2_channel_id = ?, 
-                                boss_3_channel_id = ?, 
-                                boss_4_channel_id = ?, 
-                                boss_5_channel_id = ?, 
-                                tl_shifter_channel_id = ?
+                        SELECT channel_id,
+                               guild_id,
+                               channel_type
+                        FROM channel
                         WHERE guild_id = ?
                         """,
-                        (guild_channel.CategoryId,
-                         guild_channel.ReportChannelId,
-                         guild_channel.Boss1ChannelId,
-                         guild_channel.Boss2ChannelId,
-                         guild_channel.Boss3ChannelId,
-                         guild_channel.Boss4ChannelId,
-                         guild_channel.Boss5ChannelId,
-                         guild_channel.TlShifterChannelId,
-                         guild_channel.GuildId)
+                        (guild_id,)
+                    )
+                    result = cursor.fetchall()
+                    if result:
+                        entries = []
+                        for row in result:
+                            entries.append(
+                                Channel(
+                                    ChannelId=row['channel_id'],
+                                    GuildId=row['guild_id'],
+                                    ChannelType=row['channel_type']
+                                )
+                            )
+                        return entries
+                    return []
+        except mariadb.Error as e:
+            print(f"Database error: {e}")
+
+    def insert_channel(self, channel: Channel):
+        try:
+            with MariaDBConnectionPool() as conn:
+                with conn.cursor(dictionary=True) as cursor:
+                    cursor.execute(
+                        """
+                        INSERT INTO channel (
+                            channel_id, 
+                            guild_id, 
+                            channel_type
+                            )
+                        VALUES (?, ?, ?)
+                        """,
+                        (
+                            channel.ChannelId,
+                            channel.GuildId,
+                            channel.ChannelType.name
+                        )
                     )
                     conn.commit()
+                    channel.ChannelId = cursor.lastrowid
+                    return channel
         except mariadb.Error as e:
+            print(f"Database error: {e}")
             conn.rollback()
+
 
 class ChannelMessageRepository:
     def __init__(self):
@@ -116,9 +133,10 @@ class ChannelMessageRepository:
                          channel_message.MessageId)
                     )
                     conn.commit()
+                    return channel_message
         except mariadb.Error as e:
-            conn.rollback()
             print(f"Database error: {e}")
+            conn.rollback()
 
     def update_channel_message(self, channel_message: ChannelMessage):
         try:
@@ -134,6 +152,7 @@ class ChannelMessageRepository:
                          channel_message.ChannelId,)
                     )
                     conn.commit()
+                    return channel_message
         except mariadb.Error as e:
             conn.rollback()
             print(f"Database error: {e}")
@@ -161,6 +180,32 @@ class ChannelMessageRepository:
         except mariadb.Error as e:
             print(f"Database error: {e}")
 
+    def get_all_by_guild_id(self, guild_id: int):
+        try:
+            with MariaDBConnectionPool() as conn:
+                with conn.cursor(dictionary=True) as cursor:
+                    cursor.execute(
+                        """
+                        SELECT CM.channel_id,
+                               CM.message_id
+                        FROM channel_message CM 
+                            JOIN channel C ON C.channel_id = CM.channel_id
+                            JOIN guild G ON G.guild_id = C.guild_id
+                        WHERE G.guild_id = ?
+                        """,
+                        (guild_id,)
+                    )
+                    result = cursor.fetchone()
+                    if result:
+                        return ChannelMessage(
+                            ChannelId=result['channel_id'],
+                            MessageId=result['message_id']
+                        )
+                    return None
+        except mariadb.Error as e:
+            print(f"Database error: {e}")
+
+
 class ClanBattleBossEntryRepository:
     def __init__(self):
         self.pool = MariaDBConnectionPool()
@@ -171,11 +216,20 @@ class ClanBattleBossEntryRepository:
                 with conn.cursor(dictionary=True) as cursor:
                     cursor.execute(
                         """
-                        INSERT INTO clan_battle_boss_entry (message_id, boss_id, name, image, round, current_health, max_health) 
-                        VALUES (?, ?, ?, ?, ?, ?, ?)
+                        INSERT INTO clan_battle_boss_entry (message_id, 
+                            clan_battle_period_id, 
+                            clan_battle_boss_id, 
+                            name, 
+                            image, 
+                            round, 
+                            current_health, 
+                            max_health
+                        ) 
+                        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
                         """,
                         (clan_battle_boss_entry.MessageId,
-                         clan_battle_boss_entry.BossId,
+                         clan_battle_boss_entry.ClanBattlePeriodId,
+                         clan_battle_boss_entry.ClanBattleBossId,
                          clan_battle_boss_entry.Name,
                          clan_battle_boss_entry.Image,
                          clan_battle_boss_entry.Round,
@@ -195,7 +249,8 @@ class ClanBattleBossEntryRepository:
                         """
                         SELECT clan_battle_boss_entry_id,
                                message_id,
-                               boss_id,
+                               clan_battle_period_id,
+                               clan_battle_boss_id,
                                name,
                                image,
                                round,
@@ -211,14 +266,15 @@ class ClanBattleBossEntryRepository:
                     result = cursor.fetchone()
                     if result:
                         return ClanBattleBossEntry(ClanBattleBossEntryId=result['clan_battle_boss_entry_id'],
-                                         MessageId=result['message_id'],
-                                         BossId=result['boss_id'],
-                                         Name=result['name'],
-                                         Image=result['image'],
-                                         Round=result['round'],
-                                         CurrentHealth=result['current_health'],
-                                         MaxHealth=result['max_health']
-                                         )
+                                                   MessageId=result['message_id'],
+                                                   ClanBattlePeriodId=result['clan_battle_period_id'],
+                                                   ClanBattleBossId=result['clan_battle_boss_id'],
+                                                   Name=result['name'],
+                                                   Image=result['image'],
+                                                   Round=result['round'],
+                                                   CurrentHealth=result['current_health'],
+                                                   MaxHealth=result['max_health']
+                                                   )
                     return None
         except mariadb.Error as e:
             print(f"Database error: {e}")
@@ -241,7 +297,8 @@ class ClanBattleBossEntryRepository:
             conn.rollback()
             print(f"Database error: {e}")
 
-class ClanBattleBossPlayerEntryRepository:
+
+class ClanBattleBossBookRepository:
     def __init__(self):
         self.pool = MariaDBConnectionPool()
 
@@ -251,15 +308,17 @@ class ClanBattleBossPlayerEntryRepository:
                 with conn.cursor(dictionary=True) as cursor:
                     cursor.execute(
                         """
-                        SELECT CBPE.clan_battle_boss_player_entry_id,
-                               CBPE.clan_battle_boss_entry_id,
-                               CBPE.player_id,
-                               CBPE.player_name,
-                               CBPE.attack_type,
-                               CBPE.damage,
-                               CBPE.is_done_entry
-                        FROM clan_battle_boss_player_entry CBPE
-                                 JOIN clan_battle_boss_entry CBE ON CBPE.clan_battle_boss_entry_id = CBE.clan_battle_boss_entry_id
+                        SELECT CBBB.clan_battle_boss_book_id,
+                               CBBB.clan_battle_boss_entry_id,
+                               CBBB.player_id,
+                               CBBB.player_name,
+                               CBBB.attack_type,
+                               CBBB.damage,
+                               CBBB.clan_battle_overall_entry_id,
+                               CBBB.leftover_time,
+                               CBBB.entry_date
+                        FROM clan_battle_boss_book CBBB
+                                 JOIN clan_battle_boss_entry CBE ON CBBB.clan_battle_boss_entry_id = CBE.clan_battle_boss_entry_id
                         WHERE CBE.message_id = ?
                         """,
                         (message_id,)
@@ -268,151 +327,163 @@ class ClanBattleBossPlayerEntryRepository:
                     if result:
                         entries = []
                         for row in result:
-                            entry = ClanBattleBossPlayerEntry(
-                                ClanBattleBossPlayerEntryId=row['clan_battle_boss_player_entry_id'],
+                            entries.append(ClanBattleBossBook(
+                                ClanBattleBossBookId=row['clan_battle_boss_book_id'],
                                 ClanBattleBossEntryId=row['clan_battle_boss_entry_id'],
                                 PlayerId=row['player_id'],
                                 PlayerName=row['player_name'],
                                 AttackType=row['attack_type'],
                                 Damage=row['damage'],
-                                IsDoneEntry=row['is_done_entry']
+                                ClanBattleOverallEntryId=row['clan_battle_overall_entry_id'],
+                                LeftoverTime=row['leftover_time'],
+                                EntryDate=row['entry_date']
+                                )
                             )
-                            entries.append(entry)
                         return entries
                     return []
         except mariadb.Error as e:
             print(f"Database error: {e}")
 
-    def get_all_by_message_id_and_book_type(self, message_id: int, book_type: int):
+    def get_one_by_message_id_and_player_id(self, message_id: int, player_id: int):
         try:
             with MariaDBConnectionPool() as conn:
                 with conn.cursor(dictionary=True) as cursor:
                     cursor.execute(
                         """
-                        SELECT CBPE.clan_battle_boss_player_entry_id,
-                               CBPE.clan_battle_boss_entry_id,
-                               CBPE.player_id,
-                               CBPE.player_name,
-                               CBPE.attack_type,
-                               CBPE.damage,
-                               CBPE.is_done_entry
-                        FROM clan_battle_boss_player_entry CBPE
-                                 JOIN clan_battle_boss_entry CBE ON CBPE.clan_battle_boss_entry_id = CBE.clan_battle_boss_entry_id
-                        WHERE CBE.message_id = ?
-                          AND CBPE.is_done_entry = ?
+                        SELECT CBBB.clan_battle_boss_book_id,
+                               CBBB.clan_battle_boss_entry_id,
+                               CBBB.player_id,
+                               CBBB.player_name,
+                               CBBB.attack_type,
+                               CBBB.damage,
+                               CBBB.clan_battle_overall_entry_id,
+                               CBBB.leftover_time,
+                               CBBB.entry_date
+                            FROM clan_battle_boss_book AS CBBB
+                                     INNER JOIN clan_battle_boss_entry AS CBBE ON CBBB.clan_battle_boss_entry_id = CBBE.clan_battle_boss_entry_id
+                            WHERE CBBB.player_id = ?
+                              AND CBBE.message_id = ?
                         """,
-                        (message_id,
-                         book_type)
-                    )
-                    result = cursor.fetchall()
-                    if result:
-                        entries = []
-                        for row in result:
-                            entry = ClanBattleBossPlayerEntry(
-                                ClanBattleBossPlayerEntryId=row['clan_battle_boss_player_entry_id'],
-                                ClanBattleBossEntryId=row['clan_battle_boss_entry_id'],
-                                PlayerId=row['player_id'],
-                                PlayerName=row['player_name'],
-                                AttackType=row['attack_type'],
-                                Damage=row['damage'],
-                                IsDoneEntry=row['is_done_entry']
-                            )
-                            entries.append(entry)
-                        return entries
-                    return []
-        except mariadb.Error as e:
-            print(f"Database error: {e}")
-
-    def get_single_book_by_message_id_and_player_id(self, message_id: int, player_id: int):
-        try:
-            with MariaDBConnectionPool() as conn:
-                with conn.cursor(dictionary=True) as cursor:
-                    cursor.execute(
-                        """
-                        SELECT CBPE.clan_battle_boss_player_entry_id,
-                               CBPE.clan_battle_boss_entry_id,
-                               CBPE.player_id,
-                               CBPE.player_name,
-                               CBPE.attack_type,
-                               CBPE.damage,
-                               CBPE.is_done_entry
-                        FROM clan_battle_boss_player_entry CBPE
-                                 JOIN clan_battle_boss_entry CBE ON CBPE.clan_battle_boss_entry_id = CBE.clan_battle_boss_entry_id
-                        WHERE CBE.message_id = ?
-                          AND CBPE.player_id = ?
-                          AND CBPE.is_done_entry = 0
-                        """,
-                        (message_id,
-                         player_id)
+                        (
+                            player_id,
+                            message_id
+                        )
                     )
                     result = cursor.fetchone()
                     if result:
-                        return ClanBattleBossPlayerEntry(
-                            ClanBattleBossPlayerEntryId=result['clan_battle_boss_player_entry_id'],
+                        return ClanBattleBossBook(
+                            ClanBattleBossBookId=result['clan_battle_boss_book_id'],
                             ClanBattleBossEntryId=result['clan_battle_boss_entry_id'],
                             PlayerId=result['player_id'],
                             PlayerName=result['player_name'],
                             AttackType=result['attack_type'],
                             Damage=result['damage'],
-                            IsDoneEntry=result['is_done_entry']
+                            ClanBattleOverallEntryId=result['clan_battle_overall_entry_id'],
+                            LeftoverTime=result['leftover_time'],
+                            EntryDate=result['entry_date']
                         )
                     return None
         except mariadb.Error as e:
             print(f"Database error: {e}")
 
-    def delete_book_by_message_id_and_player_id(self, clan_battle_boss_player_entry_id: int):
+    def check_book_count_by_player_id(self, guild_id: int, player_id: int):
+        try:
+            with MariaDBConnectionPool() as conn:
+                with conn.cursor(dictionary=True) as cursor:
+                    cursor.execute(
+                        """
+                        SELECT COUNT(CBBB.clan_battle_boss_book_id) AS Book_Count
+                            FROM clan_battle_boss_book AS CBBB
+                                     INNER JOIN clan_battle_boss_entry AS CBBE ON CBBB.clan_battle_boss_entry_id = CBBE.clan_battle_boss_entry_id
+                                     INNER JOIN channel_message AS CM ON CBBE.message_id = CM.message_id
+                                     INNER JOIN channel AS C ON CM.channel_id = C.channel_id
+                                     INNER JOIN guild AS G ON C.guild_id = G.guild_id
+                            WHERE G.guild_id = ?
+                              AND CBBB.player_id = ?
+                              AND CBBB.entry_date BETWEEN (DATE(SYSDATE()) + INTERVAL 4 HOUR) AND (DATE(SYSDATE()) + INTERVAL 1 DAY + INTERVAL 4 HOUR)
+                        """,
+                        (
+                            guild_id,
+                            player_id,
+                        )
+                    )
+                    result = cursor.fetchone()
+                    if result:
+                        return int(result['Book_Count'])
+                    return 0
+        except mariadb.Error as e:
+            print(f"Database error: {e}")
+
+    def delete_book_by_id(self, clan_battle_boss_book_id: int):
         try:
             with MariaDBConnectionPool() as conn:
                 with conn.cursor(dictionary=True) as cursor:
                     cursor.execute(
                         """
                         DELETE
-                        FROM clan_battle_boss_player_entry
-                        WHERE clan_battle_boss_player_entry_id = ?
+                        FROM clan_battle_boss_book
+                        WHERE clan_battle_boss_book_id = ?
                         """,
-                        (clan_battle_boss_player_entry_id,
-                         )
+                        (
+                            clan_battle_boss_book_id,
+                        )
                     )
                     conn.commit()
         except mariadb.Error as e:
             conn.rollback()
             print(f"Database error: {e}")
 
-    def insert_clan_battle_boss_player_book_entry(self, clan_battle_boss_player_entry: ClanBattleBossPlayerEntry):
+    def insert_boss_book_entry(self, clan_battle_boss_book: ClanBattleBossBook):
         try:
             with MariaDBConnectionPool() as conn:
                 with conn.cursor(dictionary=True) as cursor:
                     cursor.execute(
                         """
-                        INSERT INTO KurikoneCbBot.clan_battle_boss_player_entry (clan_battle_boss_entry_id, player_id, player_name, attack_type, damage,
-                                            is_done_entry)
-                        VALUES (?, ?, ?, ?, ?, ?)
+                        INSERT INTO KurikoneCbBot.clan_battle_boss_book (
+                            clan_battle_boss_book_id, 
+                            clan_battle_boss_entry_id, 
+                            player_id, 
+                            player_name, 
+                            attack_type, 
+                            damage, 
+                            clan_battle_overall_entry_id, 
+                            leftover_time,
+                            entry_date
+                        )
+                        VALUES (?, ?, ?, ?, ?, ?, ?, ?, SYSDATE())
                         """,
-                        (clan_battle_boss_player_entry.ClanBattleBossEntryId,
-                         clan_battle_boss_player_entry.PlayerId,
-                         clan_battle_boss_player_entry.PlayerName,
-                         clan_battle_boss_player_entry.AttackType,
-                         clan_battle_boss_player_entry.Damage,
-                         clan_battle_boss_player_entry.IsDoneEntry)
+                        (
+                            clan_battle_boss_book.ClanBattleBossEntryId,
+                            clan_battle_boss_book.ClanBattleBossEntryId,
+                            clan_battle_boss_book.PlayerId,
+                            clan_battle_boss_book.PlayerName,
+                            clan_battle_boss_book.AttackType.name,
+                            clan_battle_boss_book.Damage,
+                            clan_battle_boss_book.ClanBattleOverallEntryId,
+                            clan_battle_boss_book.LeftoverTime
+                        )
                     )
                     conn.commit()
+                    clan_battle_boss_book.ClanBattleBossBookId = cursor.lastrowid
+                    return clan_battle_boss_book
         except mariadb.Error as e:
             conn.rollback()
             print(f"Database error: {e}")
 
-    def update_clan_battle_boss_player_done_entry(self, clan_battle_boss_player_entry: ClanBattleBossPlayerEntry):
+    def update_damage_boss_book_by_id(self, clan_battle_boss_book_id: int, damage: int):
         try:
             with MariaDBConnectionPool() as conn:
                 with conn.cursor(dictionary=True) as cursor:
                     cursor.execute(
                         """
-                        UPDATE clan_battle_boss_player_entry 
-                            SET damage = ?,
-                                is_done_entry = 1
-                        WHERE clan_battle_boss_player_entry_id = ?
+                        UPDATE clan_battle_boss_book 
+                            SET damage = ? 
+                        WHERE clan_battle_boss_book_id = ?
                         """,
-                        (clan_battle_boss_player_entry.Damage,
-                         clan_battle_boss_player_entry.ClanBattleBossPlayerEntryId)
+                        (
+                            damage,
+                            clan_battle_boss_book_id,
+                        )
                     )
                     conn.commit()
         except mariadb.Error as e:
@@ -494,6 +565,7 @@ class ClanBattleBossRepository:
         except mariadb.Error as e:
             print(f"Database error: {e}")
 
+
 class ClanBattleBossHealthRepository:
     def __init__(self):
         self.pool = MariaDBConnectionPool()
@@ -525,5 +597,205 @@ class ClanBattleBossHealthRepository:
                             Health=result['health']
                         )
                     return None
+        except mariadb.Error as e:
+            print(f"Database error: {e}")
+
+
+class ClanBattleOverallEntryRepository:
+    def __init__(self):
+        self.pool = MariaDBConnectionPool()
+
+    def get_all_by_guild_id_boss_id_and_round(self, guild_id: int, clan_battle_boss_id: int, boss_round: int):
+        try:
+            with MariaDBConnectionPool() as conn:
+                with conn.cursor(dictionary=True) as cursor:
+                    cursor.execute(
+                        """
+                        SELECT clan_battle_overall_entry_id,
+                                guild_id,
+                                clan_battle_period_id,
+                                clan_battle_boss_id,
+                                player_id,
+                                player_name,
+                                round,
+                                attack_type,
+                                damage,
+                                leftover_time,
+                                overall_parent_entry_id,
+                                entry_date
+                        FROM clan_battle_overall_entry
+                        WHERE guild_id = ? 
+                        AND clan_battle_boss_id = ? 
+                        AND round = ?
+                        ORDER BY entry_date
+                        """,
+                        (
+                            guild_id,
+                            clan_battle_boss_id,
+                            boss_round,
+                        )
+                    )
+                    result = cursor.fetchall()
+                    if result:
+                        entries = []
+                        for row in result:
+                            entry = ClanBattleOverallEntry(
+                                ClanBattleOverallEntryId=row['clan_battle_overall_entry_id'],
+                                GuildId=row['guild_id'],
+                                ClanBattlePeriodId=row['clan_battle_period_id'],
+                                ClanBattleBossId=row['clan_battle_boss_id'],
+                                PlayerId=row['player_id'],
+                                PlayerName=row['player_name'],
+                                Round=row['round'],
+                                AttackType=row['attack_type'],
+                                Damage=row['damage'],
+                                LeftoverTime=row['leftover_time'],
+                                OverallParentEntryId=row['overall_parent_entry_id'],
+                                EntryDate=row['entry_date']
+                            )
+                            entries.append(entry)
+                        return entries
+                    return []
+        except mariadb.Error as e:
+            print(f"Database error: {e}")
+
+    def insert(self, cb_overall_entry: ClanBattleOverallEntry):
+        try:
+            with MariaDBConnectionPool() as conn:
+                with conn.cursor(dictionary=True) as cursor:
+                    cursor.execute(
+                        """
+                        INSERT INTO clan_battle_overall_entry (
+                            guild_id, 
+                            clan_battle_period_id, 
+                            clan_battle_boss_id, 
+                            player_id, 
+                            player_name, 
+                            round, 
+                            damage, 
+                            attack_type, 
+                            leftover_time, 
+                            overall_parent_entry_id, 
+                            entry_date
+                        )
+                        VALUES 
+                        (
+                            ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, SYSDATE()
+                        )
+                        """,
+                        (
+                            cb_overall_entry.GuildId,
+                            cb_overall_entry.ClanBattlePeriodId,
+                            cb_overall_entry.ClanBattleBossId,
+                            cb_overall_entry.PlayerId,
+                            cb_overall_entry.PlayerName,
+                            cb_overall_entry.Round,
+                            cb_overall_entry.Damage,
+                            cb_overall_entry.AttackType.name,
+                            cb_overall_entry.LeftoverTime,
+                            cb_overall_entry.OverallParentEntryId,
+                            cb_overall_entry.EntryDate
+                        )
+                    )
+                    conn.commit()
+                    cb_overall_entry.ClanBattleOverallEntryId = cursor.lastrowid
+                    return cb_overall_entry
+        except mariadb.Error as e:
+            conn.rollback()
+            print(f"Database error: {e}")
+
+    def update_overall_link(self, cb_overall_entry_id: int, overall_parent_entry_id: int):
+        try:
+            with MariaDBConnectionPool() as conn:
+                with conn.cursor(dictionary=True) as cursor:
+                    cursor.execute(
+                        """
+                        UPDATE clan_battle_overall_entry
+                        SET overall_parent_entry_id = ?
+                        WHERE clan_battle_overall_entry_id = ?
+                        
+                        """,
+                        (
+                            overall_parent_entry_id,
+                            cb_overall_entry_id
+                        )
+                    )
+                    conn.commit()
+        except mariadb.Error as e:
+            conn.rollback()
+            print(f"Database error: {e}")
+
+    def get_entry_count_by_guild_id_and_player_id(self, guild_id: int, player_id: int):
+        try:
+            with MariaDBConnectionPool() as conn:
+                with conn.cursor(dictionary=True) as cursor:
+                    cursor.execute(
+                        """
+                        SELECT COUNT(CBOE.clan_battle_overall_entry_id) AS entry_count
+                        FROM clan_battle_overall_entry CBOE
+                                 JOIN clan_battle_period CBP ON CBP.clan_battle_period_id = CBOE.clan_battle_period_id
+                                 JOIN clan_battle_boss CBB ON CBOE.clan_battle_boss_id = CBB.clan_battle_boss_id
+                        WHERE CBOE.guild_id = ?
+                          AND CBOE.player_id = ?
+                          AND CBOE.overall_parent_entry_id IS NULL
+                          AND DATE(SYSDATE()) BETWEEN CBP.date_from AND CBP.date_to
+                          AND CBOE.entry_date BETWEEN (DATE(SYSDATE()) + INTERVAL 4 HOUR) AND (DATE(SYSDATE()) + INTERVAL 1 DAY + INTERVAL 4 HOUR)
+
+                        """,
+                        (
+                            guild_id,
+                            player_id,
+                        )
+                    )
+                    result = cursor.fetchone()
+                    if result:
+                        return result['entry_count']
+                    return 0
+        except mariadb.Error as e:
+            print(f"Database error: {e}")
+
+    def get_leftover_by_guild_id_and_player_id(self, guild_id: int, player_id: int):
+        try:
+            with MariaDBConnectionPool() as conn:
+                with conn.cursor(dictionary=True) as cursor:
+                    cursor.execute(
+                        """
+                        SELECT CBOE.clan_battle_overall_entry_id,
+                               CBOE.clan_battle_boss_id,
+                               CBB.name,
+                               CBOE.player_id,
+                               CBOE.attack_type,
+                               CBOE.leftover_time
+                        FROM clan_battle_overall_entry CBOE
+                                 JOIN clan_battle_period CBP ON CBP.clan_battle_period_id = CBOE.clan_battle_period_id
+                                 JOIN clan_battle_boss CBB ON CBOE.clan_battle_boss_id = CBB.clan_battle_boss_id
+                        WHERE CBOE.guild_id = ?
+                          AND CBOE.player_id = ?
+                          AND CBOE.leftover_time IS NOT NULL
+                          AND CBOE.overall_parent_entry_id IS NULL
+                          AND DATE(SYSDATE()) BETWEEN CBP.date_from AND CBP.date_to
+                          AND CBOE.entry_date BETWEEN (DATE(SYSDATE()) + INTERVAL 4 HOUR) AND (DATE(SYSDATE()) + INTERVAL 1 DAY + INTERVAL 4 HOUR)
+
+                        """,
+                        (
+                            guild_id,
+                            player_id,
+                        )
+                    )
+                    result = cursor.fetchall()
+                    if result:
+                        entries = []
+                        for row in result:
+                            entry = ClanBattleLeftover(
+                                ClanBattleOverallEntryId=row['clan_battle_overall_entry_id'],
+                                ClanBattleBossId=row['clan_battle_boss_id'],
+                                ClanBattleBossName=row['name'],
+                                PlayerId=row['player_id'],
+                                AttackType=row['attack_type'],
+                                LeftoverTime=row['leftover_time'],
+                            )
+                            entries.append(entry)
+                        return entries
+                    return []
         except mariadb.Error as e:
             print(f"Database error: {e}")
