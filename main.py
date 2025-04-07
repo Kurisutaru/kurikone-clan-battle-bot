@@ -456,7 +456,8 @@ class LeftoverInputModal(Modal, title="Leftover Input"):
         view.add_item(DeadOkButton(message_id=message_id, leftover_time=leftover_time))
         view.add_item(ConfirmationNoCancelButton(emoji_param=EmojiEnum.NO))
 
-        await interaction.response.send_message(content=f"## Are you sure want to Mark your entry as Boss Kill ?",
+        await interaction.response.send_message(content=f"## Are you sure want to Mark your entry as Boss Kill ?{NEW_LINE}"
+                                                        f"Leftover Time : **{leftover_time}s**",
                                                 view=view, ephemeral=True,
                                                 delete_after=config.MESSAGE_DEFAULT_DELETE_AFTER_LONG)
 
