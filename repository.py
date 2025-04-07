@@ -1,3 +1,5 @@
+import traceback
+
 import mariadb
 
 from database import db_pool
@@ -29,7 +31,8 @@ class GuildRepository:
                         )
                     return None
         except mariadb.Error as e:
-            print(f"Database error: {e}")
+            traceback.print_exc()
+            print(f"Database Error : {e}")
             return None
 
     def insert_guild(self, guild: Guild):
@@ -52,7 +55,8 @@ class GuildRepository:
                     conn.commit()
                     return guild
         except mariadb.Error as e:
-            print(f"Database error: {e}")
+            traceback.print_exc()
+            print(f"Database Error : {e}")
             conn.rollback()
             return None
 
@@ -89,7 +93,8 @@ class GuildChannelRepository:
                         return entries
                     return []
         except mariadb.Error as e:
-            print(f"Database error: {e}")
+            traceback.print_exc()
+            print(f"Database Error : {e}")
             return []
 
     def insert_channel(self, channel: Channel):
@@ -111,11 +116,36 @@ class GuildChannelRepository:
                             channel.ChannelType.name
                         )
                     )
-                    conn.commit()
                     channel.ChannelId = cursor.lastrowid
-                    return channel
+                conn.commit()
+                return channel
         except mariadb.Error as e:
-            print(f"Database error: {e}")
+            traceback.print_exc()
+            print(f"Database Error : {e}")
+            conn.rollback()
+
+    def update_channel(self, channel: Channel):
+        try:
+            with self.pool as conn:
+                with conn.cursor(dictionary=True) as cursor:
+                    cursor.execute(
+                        """
+                        UPDATE channel
+                            SET channel_id = ?
+                        WHERE guild_id = ? and channel_type = ?
+                        """,
+                        (
+                            channel.ChannelId,
+                            channel.GuildId,
+                            channel.ChannelType.name
+                        )
+                    )
+                    channel.ChannelId = cursor.lastrowid
+                conn.commit()
+                return channel
+        except mariadb.Error as e:
+            traceback.print_exc()
+            print(f"Database Error : {e}")
             conn.rollback()
 
 
@@ -138,7 +168,8 @@ class ChannelMessageRepository:
                     conn.commit()
                     return channel_message
         except mariadb.Error as e:
-            print(f"Database error: {e}")
+            traceback.print_exc()
+            print(f"Database Error : {e}")
             conn.rollback()
             return None
 
@@ -152,15 +183,41 @@ class ChannelMessageRepository:
                             SET message_id = ?
                         WHERE channel_id = ?
                         """,
-                        (channel_message.MessageId,
-                         channel_message.ChannelId,)
+                        (
+                            channel_message.MessageId,
+                            channel_message.ChannelId,
+                        )
                     )
                     conn.commit()
                     return channel_message
         except mariadb.Error as e:
-            print(f"Database error: {e}")
+            traceback.print_exc()
+            print(f"Database Error : {e}")
             conn.rollback()
             return None
+
+    def update_self_channel_message(self, old_channel_id:int, new_channel_id:int):
+        try:
+            with self.pool as conn:
+                with conn.cursor(dictionary=True) as cursor:
+                    cursor.execute(
+                        """
+                        UPDATE channel_message 
+                            SET channel_id = ?
+                        WHERE channel_id = ?
+                        """,
+                        (
+                            new_channel_id,
+                            old_channel_id,
+                        )
+                    )
+                    conn.commit()
+                    return True
+        except mariadb.Error as e:
+            traceback.print_exc()
+            print(f"Database Error : {e}")
+            conn.rollback()
+            return False
 
     def get_channel_message_by_channel_id(self, channel_id: int):
         try:
@@ -183,7 +240,8 @@ class ChannelMessageRepository:
                         )
                     return None
         except mariadb.Error as e:
-            print(f"Database error: {e}")
+            traceback.print_exc()
+            print(f"Database Error : {e}")
             return None
 
     def get_all_by_guild_id(self, guild_id: int):
@@ -212,7 +270,8 @@ class ChannelMessageRepository:
                         return entries
                     return []
         except mariadb.Error as e:
-            print(f"Database error: {e}")
+            traceback.print_exc()
+            print(f"Database Error : {e}")
             return []
 
 
@@ -246,11 +305,12 @@ class ClanBattleBossEntryRepository:
                          clan_battle_boss_entry.CurrentHealth,
                          clan_battle_boss_entry.MaxHealth)
                     )
+                    clan_battle_boss_entry.ClanBattleBossEntryId = cursor.lastrowid
                 conn.commit()
-                clan_battle_boss_entry.ClanBattleBossEntryId = cursor.lastrowid
                 return clan_battle_boss_entry
         except mariadb.Error as e:
-            print(f"Database error: {e}")
+            traceback.print_exc()
+            print(f"Database Error : {e}")
             conn.rollback()
             return None
 
@@ -271,7 +331,7 @@ class ClanBattleBossEntryRepository:
                                max_health
                         FROM clan_battle_boss_entry
                         WHERE message_id = ?
-                        ORDER BY clan_battle_boss_entry_id DESC
+                        ORDER BY round, clan_battle_boss_entry_id DESC
                         LIMIT 1
                         """,
                         (message_id,)
@@ -288,16 +348,12 @@ class ClanBattleBossEntryRepository:
                             Round=result['round'],
                             CurrentHealth=result['current_health'],
                             MaxHealth=result['max_health']
-
                         )
                     return None
         except mariadb.Error as e:
-            print(f"Database error: {e}")
-            conn.close()
+            traceback.print_exc()
+            print(f"Database Error : {e}")
             return None
-        finally:
-            if conn:
-                conn.close()
 
     def update_on_attack(self, clan_battle_boss_entry_id: int, current_health: int):
         try:
@@ -317,7 +373,8 @@ class ClanBattleBossEntryRepository:
                     conn.commit()
                     return True
         except mariadb.Error as e:
-            print(f"Database error: {e}")
+            traceback.print_exc()
+            print(f"Database Error : {e}")
             conn.rollback()
             return False
 
@@ -365,7 +422,8 @@ class ClanBattleBossBookRepository:
                         return entries
                     return []
         except mariadb.Error as e:
-            print(f"Database error: {e}")
+            traceback.print_exc()
+            print(f"Database Error : {e}")
             return []
 
     def get_one_by_message_id_and_player_id(self, message_id: int, player_id: int):
@@ -408,7 +466,8 @@ class ClanBattleBossBookRepository:
                         )
                     return None
         except mariadb.Error as e:
-            print(f"Database error: {e}")
+            traceback.print_exc()
+            print(f"Database Error : {e}")
             return None
 
     def check_book_count_by_player_id(self, guild_id: int, player_id: int):
@@ -437,7 +496,8 @@ class ClanBattleBossBookRepository:
                         return int(result['Book_Count'])
                     return 0
         except mariadb.Error as e:
-            print(f"Database error: {e}")
+            traceback.print_exc()
+            print(f"Database Error : {e}")
             return 0
 
     def delete_book_by_id(self, clan_battle_boss_book_id: int):
@@ -457,7 +517,8 @@ class ClanBattleBossBookRepository:
                     conn.commit()
                     return True
         except mariadb.Error as e:
-            print(f"Database error: {e}")
+            traceback.print_exc()
+            print(f"Database Error : {e}")
             conn.rollback()
             return False
 
@@ -491,11 +552,12 @@ class ClanBattleBossBookRepository:
                             clan_battle_boss_book.LeftoverTime
                         )
                     )
-                    conn.commit()
                     clan_battle_boss_book.ClanBattleBossBookId = cursor.lastrowid
-                    return clan_battle_boss_book
+                conn.commit()
+                return clan_battle_boss_book
         except mariadb.Error as e:
-            print(f"Database error: {e}")
+            traceback.print_exc()
+            print(f"Database Error : {e}")
             conn.rollback()
             return None
 
@@ -517,7 +579,8 @@ class ClanBattleBossBookRepository:
                     conn.commit()
                     return True
         except mariadb.Error as e:
-            print(f"Database error: {e}")
+            traceback.print_exc()
+            print(f"Database Error : {e}")
             conn.rollback()
             return False
 
@@ -560,7 +623,8 @@ class ClanBattlePeriodRepository:
                         )
                     return None
         except mariadb.Error as e:
-            print(f"Database error: {e}")
+            traceback.print_exc()
+            print(f"Database Error : {e}")
             return None
 
 
@@ -595,7 +659,8 @@ class ClanBattleBossRepository:
                         )
                     return None
         except mariadb.Error as e:
-            print(f"Database error: {e}")
+            traceback.print_exc()
+            print(f"Database Error : {e}")
             return None
 
 
@@ -631,7 +696,8 @@ class ClanBattleBossHealthRepository:
                         )
                     return None
         except mariadb.Error as e:
-            print(f"Database error: {e}")
+            traceback.print_exc()
+            print(f"Database Error : {e}")
             return None
 
 
@@ -691,7 +757,8 @@ class ClanBattleOverallEntryRepository:
                         return entries
                     return []
         except mariadb.Error as e:
-            print(f"Database error: {e}")
+            traceback.print_exc()
+            print(f"Database Error : {e}")
             return []
 
     def insert(self, cb_overall_entry: ClanBattleOverallEntry):
@@ -731,11 +798,12 @@ class ClanBattleOverallEntryRepository:
                             cb_overall_entry.OverallParentEntryId
                         )
                     )
-                    conn.commit()
                     cb_overall_entry.ClanBattleOverallEntryId = cursor.lastrowid
-                    return cb_overall_entry
+                conn.commit()
+                return cb_overall_entry
         except mariadb.Error as e:
-            print(f"Database error: {e}")
+            traceback.print_exc()
+            print(f"Database Error : {e}")
             conn.rollback()
             return None
 
@@ -758,7 +826,8 @@ class ClanBattleOverallEntryRepository:
                     conn.commit()
                     return True
         except mariadb.Error as e:
-            print(f"Database error: {e}")
+            traceback.print_exc()
+            print(f"Database Error : {e}")
             conn.rollback()
             return False
 
@@ -789,7 +858,8 @@ class ClanBattleOverallEntryRepository:
                         return result['entry_count']
                     return 0
         except mariadb.Error as e:
-            print(f"Database error: {e}")
+            traceback.print_exc()
+            print(f"Database Error : {e}")
             return 0
 
     def get_leftover_by_guild_id_and_player_id(self, guild_id: int, player_id: int):
@@ -836,5 +906,6 @@ class ClanBattleOverallEntryRepository:
                         return entries
                     return []
         except mariadb.Error as e:
-            print(f"Database error: {e}")
+            traceback.print_exc()
+            print(f"Database Error : {e}")
             return []
