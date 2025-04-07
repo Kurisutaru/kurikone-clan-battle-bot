@@ -49,7 +49,8 @@ You can see my figma prototype at [here](https://www.figma.com/proto/C1qiBAUNZNN
 
 4. **Set Up MariaDB**:
    - Install MariaDB if not already installed (e.g., `sudo apt install mariadb-server` on Ubuntu).
-   - Create a database by run the script on dbscript/script.sql
+   - Create a database by run the script on dbscript/schema.sql
+   - Also run dbscript/master-data.sql
 
 5. **Run the Bot**:
    ```bash

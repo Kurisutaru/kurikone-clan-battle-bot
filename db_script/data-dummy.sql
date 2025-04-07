@@ -1,0 +1,1 @@
+INSERT INTO KurikoneCbBot.clan_battle_period (clan_battle_period_name, date_from, date_to, boss1_id, boss2_id, boss3_id, boss4_id, boss5_id) VALUES ('KMR FOREVA #1', '2025-04-05 00:00:00', '2026-04-05 00:00:00', 46, 55, 14, 48, 33);
