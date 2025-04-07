@@ -1,7 +1,10 @@
+import math
+
 import discord
 from discord import TextChannel
 
 from config import config
+from enums import EmojiEnum
 
 
 async def discord_try_fetch_message(channel: TextChannel, message_id: int):
@@ -23,6 +26,19 @@ async def discord_resp_send_msg(interaction: discord.Interaction, message: str, 
 
     await interaction.response.send_message(content=message, ephemeral=ephemeral,
                                             delete_after=delete_after)  # type: ignore
+
+
+def generate_health_bar(current_health:int, max_health:int):
+    max_bar = 10
+    green_block = math.floor(current_health / max_health * 10)
+    result = f"`"
+    for i in range(green_block):
+        result += f"{EmojiEnum.GREEN_BLOCK.value}"
+    for i in range(max_bar - green_block):
+        result += f"{EmojiEnum.RED_BLOCK.value}"
+    result += f"`"
+    return result
+
 
 
 def format_large_number(num):

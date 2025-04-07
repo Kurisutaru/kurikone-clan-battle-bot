@@ -3,6 +3,7 @@ import re
 from typing import List
 
 import discord
+from discord import Colour
 from discord.abc import GuildChannel
 from discord.ext import commands
 from discord.ui import Button, View, Modal, TextInput
@@ -696,33 +697,33 @@ class ConfirmationNoCancelButton(Button):
         await utils.discord_close_response(interaction=interaction)
 
 
-def create_header_embed(cb_boss_entry: ClanBattleBossEntry, include_image: bool = True):
+def create_header_embed(cb_boss_entry: ClanBattleBossEntry, include_image: bool = True, default_color: Colour = discord.Color.red()):
     embed = discord.Embed(
         title=f"{cb_boss_entry.name} (Round {cb_boss_entry.boss_round})",
         description=f"""# HP : {utils.format_large_number(cb_boss_entry.current_health)} / {utils.format_large_number(cb_boss_entry.max_health)}{NEW_LINE}
                         {utils.generate_health_bar(current_health=cb_boss_entry.current_health, max_health=cb_boss_entry.max_health)}
                         """,
-        color=discord.Color.red()
+        color=default_color
     )
     if include_image:
         embed.set_image(url=cb_boss_entry.image_path)
     return embed
 
 
-def create_done_embed(list_cb_overall_entry: List[ClanBattleOverallEntry]):
+def create_done_embed(list_cb_overall_entry: List[ClanBattleOverallEntry], default_color: Colour = discord.Color.green()):
     embed = discord.Embed(
         title="",
         description=generate_done_attack_list(list_cb_overall_entry),
-        color=discord.Color.green(),
+        color= default_color,
     )
     return embed
 
 
-def create_book_embed(list_boss_cb_player_entries: List[ClanBattleBossBook]):
+def create_book_embed(list_boss_cb_player_entries: List[ClanBattleBossBook], default_color: Colour = discord.Color.blue()):
     embed = discord.Embed(
         title="",
         description=generate_book_list(list_boss_cb_player_entries),
-        color=discord.Color.blue(),
+        color=default_color,
     )
     return embed
 
@@ -870,8 +871,8 @@ async def generate_next_clan_battle_boss_entry(interaction: discord.interactions
                                                                                    clan_battle_boss_id=boss_entry.clan_battle_boss_id,
                                                                                    boss_round=boss_entry.boss_round)
 
-        await prev_msg.edit(embeds=[create_header_embed(cb_boss_entry=boss_entry, include_image=False),
-                                    create_done_embed(done_entries)], view=None)
+        await prev_msg.edit(embeds=[create_header_embed(cb_boss_entry=boss_entry, include_image=False, default_color=discord.Color.dark_grey()),
+                                    create_done_embed(list_cb_overall_entry=done_entries, default_color=discord.Color.dark_grey())], view=None)
 
     # Generate New One
     cm_repo = ChannelMessageRepository()

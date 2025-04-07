@@ -33,3 +33,5 @@ class EmojiEnum(Enum):
     STAR = "🌟"
     YES = "✔"
     NO = "❌"
+    GREEN_BLOCK = "🟩"
+    RED_BLOCK = "🟥"
