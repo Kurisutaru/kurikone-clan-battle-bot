@@ -373,7 +373,7 @@ class DoneOkButton(Button):
 
         if not boss_book.clan_battle_overall_entry_id is None:
             cb_overall_repository.update_overall_link(cb_overall_entry_id=boss_book.clan_battle_overall_entry_id,
-                                                      overall_parent_entry_id=overall.clan_battle_overall_entry_id)
+                                                      overall_leftover_entry_id=overall.clan_battle_overall_entry_id)
 
         # Update Boss Entry
         cb_boss_repo.update_on_attack(clan_battle_boss_entry_id=boss_entry.clan_battle_boss_entry_id,
@@ -516,7 +516,7 @@ class DeadOkButton(Button):
 
         if not boss_book.clan_battle_overall_entry_id is None:
             cb_overall_repository.update_overall_link(cb_overall_entry_id=boss_book.clan_battle_overall_entry_id,
-                                                      overall_parent_entry_id=overall.clan_battle_overall_entry_id)
+                                                      overall_leftover_entry_id=overall.clan_battle_overall_entry_id)
 
         await utils.discord_close_response(interaction=interaction)
 

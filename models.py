@@ -93,7 +93,7 @@ class ClanBattleOverallEntry:
     attack_type: AttackTypeEnum = field(converter=lambda x: AttackTypeEnum[x] if isinstance(x, str) else x, default=None)
     damage: int = field(default=None)
     leftover_time: int = field(default=None)
-    overall_parent_entry_id: int = field(default=None)
+    overall_leftover_entry_id: int = field(default=None)
     entry_date: datetime = field(default=None)
 
 
@@ -105,4 +105,4 @@ class ClanBattleLeftover:
     player_id: int = field(default=None)
     attack_type: AttackTypeEnum = field(converter=lambda x: AttackTypeEnum[x] if isinstance(x, str) else x, default=None)
     leftover_time: int = field(default=None)
-    overall_parent_entry_id: int = field(default=None)
+    overall_leftover_entry_id: int = field(default=None)

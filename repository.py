@@ -196,7 +196,7 @@ class ChannelMessageRepository:
             conn.rollback()
             return None
 
-    def update_self_channel_message(self, old_channel_id:int, new_channel_id:int):
+    def update_self_channel_message(self, old_channel_id: int, new_channel_id: int):
         try:
             with self.pool as conn:
                 with conn.cursor(dictionary=True) as cursor:
@@ -263,7 +263,7 @@ class ChannelMessageRepository:
                     if result:
                         entries = []
                         for row in result:
-                            entries.append( ChannelMessage(
+                            entries.append(ChannelMessage(
                                 channel_id=row['channel_id'],
                                 message_id=row['message_id']
                             ))
@@ -378,6 +378,7 @@ class ClanBattleBossEntryRepository:
             conn.rollback()
             return False
 
+
 class ClanBattleBossBookRepository:
     def __init__(self):
         self.pool = db_pool
@@ -417,7 +418,7 @@ class ClanBattleBossBookRepository:
                                 clan_battle_overall_entry_id=row['clan_battle_overall_entry_id'],
                                 leftover_time=row['leftover_time'],
                                 entry_date=row['entry_date']
-                                )
+                            )
                             )
                         return entries
                     return []
@@ -483,8 +484,8 @@ class ClanBattleBossBookRepository:
                                      INNER JOIN channel AS C ON CM.channel_id = C.channel_id
                                      INNER JOIN guild AS G ON C.guild_id = G.guild_id
                             WHERE G.guild_id = ?
-                              AND CBBB.player_id = ?
-                              AND CBBB.entry_date BETWEEN (DATE(SYSDATE()) + INTERVAL 4 HOUR) AND (DATE(SYSDATE()) + INTERVAL 1 DAY + INTERVAL 4 HOUR)
+                                AND CBBB.player_id = ?
+                                AND CONVERT_TZ(CBBB.entry_date, @@session.time_zone, 'Asia/Tokyo' ) BETWEEN (DATE(CONVERT_TZ(SYSDATE(), @@session.time_zone, 'Asia/Tokyo' )) + INTERVAL 5 HOUR) AND (DATE(CONVERT_TZ(SYSDATE(), @@session.time_zone, 'Asia/Tokyo' )) + INTERVAL 1 DAY + INTERVAL 5 HOUR)
                         """,
                         (
                             guild_id,
@@ -721,7 +722,7 @@ class ClanBattleOverallEntryRepository:
                                 attack_type,
                                 damage,
                                 leftover_time,
-                                overall_parent_entry_id,
+                                overall_leftover_entry_id,
                                 entry_date
                         FROM clan_battle_overall_entry
                         WHERE guild_id = ? 
@@ -750,7 +751,7 @@ class ClanBattleOverallEntryRepository:
                                 attack_type=row['attack_type'],
                                 damage=row['damage'],
                                 leftover_time=row['leftover_time'],
-                                overall_parent_entry_id=row['overall_parent_entry_id'],
+                                overall_leftover_entry_id=row['overall_leftover_entry_id'],
                                 entry_date=row['entry_date']
                             )
                             entries.append(entry)
@@ -777,7 +778,7 @@ class ClanBattleOverallEntryRepository:
                             damage, 
                             attack_type, 
                             leftover_time, 
-                            overall_parent_entry_id, 
+                            overall_leftover_entry_id, 
                             entry_date
                         )
                         VALUES 
@@ -795,7 +796,7 @@ class ClanBattleOverallEntryRepository:
                             cb_overall_entry.damage,
                             cb_overall_entry.attack_type.name,
                             cb_overall_entry.leftover_time,
-                            cb_overall_entry.overall_parent_entry_id
+                            cb_overall_entry.overall_leftover_entry_id
                         )
                     )
                     cb_overall_entry.clan_battle_overall_entry_id = cursor.lastrowid
@@ -807,19 +808,19 @@ class ClanBattleOverallEntryRepository:
             conn.rollback()
             return None
 
-    def update_overall_link(self, cb_overall_entry_id: int, overall_parent_entry_id: int):
+    def update_overall_link(self, cb_overall_entry_id: int, overall_leftover_entry_id: int):
         try:
             with self.pool as conn:
                 with conn.cursor(dictionary=True) as cursor:
                     cursor.execute(
                         """
                         UPDATE clan_battle_overall_entry
-                        SET overall_parent_entry_id = ?
+                        SET overall_leftover_entry_id = ?
                         WHERE clan_battle_overall_entry_id = ?
                         
                         """,
                         (
-                            overall_parent_entry_id,
+                            overall_leftover_entry_id,
                             cb_overall_entry_id
                         )
                     )
@@ -843,9 +844,10 @@ class ClanBattleOverallEntryRepository:
                                  JOIN clan_battle_boss CBB ON CBOE.clan_battle_boss_id = CBB.clan_battle_boss_id
                         WHERE CBOE.guild_id = ?
                           AND CBOE.player_id = ?
-                          AND CBOE.overall_parent_entry_id IS NULL
+                          AND CBOE.overall_leftover_entry_id IS NULL
                           AND DATE(SYSDATE()) BETWEEN CBP.date_from AND CBP.date_to
-                          AND CBOE.entry_date BETWEEN (DATE(SYSDATE()) + INTERVAL 4 HOUR) AND (DATE(SYSDATE()) + INTERVAL 1 DAY + INTERVAL 4 HOUR)
+                          AND CONVERT_TZ(CBOE.entry_date, 'Asia/Tokyo' , @@session.time_zone) BETWEEN (DATE(CONVERT_TZ(SYSDATE(), @@session.time_zone, 'Asia/Tokyo' )) + INTERVAL 5 HOUR) AND (DATE(CONVERT_TZ(SYSDATE(), @@session.time_zone, 'Asia/Tokyo' )) + INTERVAL 1 DAY + INTERVAL 5 HOUR
+                          )
 
                         """,
                         (
@@ -878,12 +880,12 @@ class ClanBattleOverallEntryRepository:
                                  JOIN clan_battle_period CBP ON CBP.clan_battle_period_id = CBOE.clan_battle_period_id
                                  JOIN clan_battle_boss CBB ON CBOE.clan_battle_boss_id = CBB.clan_battle_boss_id
                         WHERE CBOE.guild_id = ?
-                          AND CBOE.player_id = ?
-                          AND CBOE.leftover_time IS NOT NULL
-                          AND CBOE.overall_parent_entry_id IS NULL
-                          AND DATE(SYSDATE()) BETWEEN CBP.date_from AND CBP.date_to
-                          AND CBOE.entry_date BETWEEN (DATE(SYSDATE()) + INTERVAL 4 HOUR) AND (DATE(SYSDATE()) + INTERVAL 1 DAY + INTERVAL 4 HOUR)
-
+                            AND CBOE.player_id = ?
+                            AND CBOE.leftover_time IS NOT NULL
+                            AND CBOE.overall_leftover_entry_id IS NULL
+                            AND DATE(SYSDATE()) BETWEEN CBP.date_from AND CBP.date_to
+                            AND CONVERT_TZ(CBOE.entry_date, @@session.time_zone, 'Asia/Tokyo' ) BETWEEN (DATE(CONVERT_TZ(SYSDATE(), @@session.time_zone, 'Asia/Tokyo' )) + INTERVAL 5 HOUR) AND (DATE(CONVERT_TZ(SYSDATE(), @@session.time_zone, 'Asia/Tokyo' )) + INTERVAL 1 DAY + INTERVAL 5 HOUR
+                        )
                         """,
                         (
                             guild_id,
