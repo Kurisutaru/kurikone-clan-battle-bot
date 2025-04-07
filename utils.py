@@ -19,7 +19,7 @@ async def discord_close_response(interaction: discord.Interaction):
 async def discord_resp_send_msg(interaction: discord.Interaction, message: str, ephemeral: bool = True,
                                 delete_after=None):
     if delete_after is None:
-        delete_after = config['MESSAGE_DEFAULT_DELETE_AFTER']
+        delete_after = config.MESSAGE_DEFAULT_DELETE_AFTER_SHORT
 
     await interaction.response.send_message(content=message, ephemeral=ephemeral,
                                             delete_after=delete_after)  # type: ignore
@@ -34,8 +34,8 @@ def format_large_number(num):
         return str(num)
 
 
-def reduce_health(current_health: int, damage: int):
-    return max(current_health - damage, 0)
+def reduce_int_ab_non_zero(a: int, b: int):
+    return max(a - b, 0)
 
 # TL Shifter
 def time_to_seconds(time_str: str) -> int:

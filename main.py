@@ -463,7 +463,7 @@ class BookPatkButton(Button):
         await refresh_boss_message(message)
         await utils.discord_close_response(interaction=interaction)
         await interaction.channel.send(content=f"{display_name} {self.local_emoji.value} added to book list.",
-                                       delete_after=config['MESSAGE_DEFAULT_DELETE_AFTER'])
+                                       delete_after=config.MESSAGE_DEFAULT_DELETE_AFTER_SHORT)
 
 
 # MATK Button
@@ -508,7 +508,7 @@ class BookMatkButton(Button):
         await refresh_boss_message(message)
         await utils.discord_close_response(interaction=interaction)
         await interaction.channel.send(content=f"{display_name} {self.local_emoji.value} added to book list.",
-                                       delete_after=config['MESSAGE_DEFAULT_DELETE_AFTER'])
+                                       delete_after=config.MESSAGE_DEFAULT_DELETE_AFTER_SHORT)
 
 
 # Leftover Button
@@ -555,7 +555,7 @@ class BookLeftoverButton(Button):
         await refresh_boss_message(message)
         await utils.discord_close_response(interaction=interaction)
         await interaction.channel.send(content=f"{username} {self.local_emoji.value} added to book list.",
-                                       delete_after=config['MESSAGE_DEFAULT_DELETE_AFTER'])
+                                       delete_after=config.MESSAGE_DEFAULT_DELETE_AFTER_SHORT)
 
 
 # Cancel Button (in Book context)
@@ -781,4 +781,4 @@ async def generate_next_clan_battle_boss_entry(interaction: discord.interactions
     await refresh_boss_message(new_message)
 
 
-bot.run(config['DISCORD_TOKEN'], log_handler=handler)
+bot.run(config.DISCORD_TOKEN, log_handler=handler)
