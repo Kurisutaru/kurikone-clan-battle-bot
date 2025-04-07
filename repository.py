@@ -1,16 +1,16 @@
 import mariadb
 
-from database import MariaDBConnectionPool
+from database import db_pool
 from models import *
 
 
 class GuildRepository:
     def __init__(self):
-        self.pool = MariaDBConnectionPool()
+        self.pool = db_pool
 
     def get_by_guild_id(self, guild_id: int):
         try:
-            with MariaDBConnectionPool() as conn:
+            with self.pool as conn:
                 with conn.cursor(dictionary=True) as cursor:
                     cursor.execute(
                         """
@@ -30,10 +30,11 @@ class GuildRepository:
                     return None
         except mariadb.Error as e:
             print(f"Database error: {e}")
+            return None
 
     def insert_guild(self, guild: Guild):
         try:
-            with MariaDBConnectionPool() as conn:
+            with self.pool as conn:
                 with conn.cursor(dictionary=True) as cursor:
                     cursor.execute(
                         """
@@ -53,15 +54,16 @@ class GuildRepository:
         except mariadb.Error as e:
             print(f"Database error: {e}")
             conn.rollback()
+            return None
 
 
 class GuildChannelRepository:
     def __init__(self):
-        self.pool = MariaDBConnectionPool()
+        self.pool = db_pool
 
     def get_all_by_guild_id(self, guild_id: int):
         try:
-            with MariaDBConnectionPool() as conn:
+            with self.pool as conn:
                 with conn.cursor(dictionary=True) as cursor:
                     cursor.execute(
                         """
@@ -88,10 +90,11 @@ class GuildChannelRepository:
                     return []
         except mariadb.Error as e:
             print(f"Database error: {e}")
+            return []
 
     def insert_channel(self, channel: Channel):
         try:
-            with MariaDBConnectionPool() as conn:
+            with self.pool as conn:
                 with conn.cursor(dictionary=True) as cursor:
                     cursor.execute(
                         """
@@ -118,11 +121,11 @@ class GuildChannelRepository:
 
 class ChannelMessageRepository:
     def __init__(self):
-        self.pool = MariaDBConnectionPool()
+        self.pool = db_pool
 
     def insert_channel_message(self, channel_message: ChannelMessage):
         try:
-            with MariaDBConnectionPool() as conn:
+            with self.pool as conn:
                 with conn.cursor(dictionary=True) as cursor:
                     cursor.execute(
                         """
@@ -137,10 +140,11 @@ class ChannelMessageRepository:
         except mariadb.Error as e:
             print(f"Database error: {e}")
             conn.rollback()
+            return None
 
     def update_channel_message(self, channel_message: ChannelMessage):
         try:
-            with MariaDBConnectionPool() as conn:
+            with self.pool as conn:
                 with conn.cursor(dictionary=True) as cursor:
                     cursor.execute(
                         """
@@ -154,12 +158,13 @@ class ChannelMessageRepository:
                     conn.commit()
                     return channel_message
         except mariadb.Error as e:
-            conn.rollback()
             print(f"Database error: {e}")
+            conn.rollback()
+            return None
 
     def get_channel_message_by_channel_id(self, channel_id: int):
         try:
-            with MariaDBConnectionPool() as conn:
+            with self.pool as conn:
                 with conn.cursor(dictionary=True) as cursor:
                     cursor.execute(
                         """
@@ -179,10 +184,11 @@ class ChannelMessageRepository:
                     return None
         except mariadb.Error as e:
             print(f"Database error: {e}")
+            return None
 
     def get_all_by_guild_id(self, guild_id: int):
         try:
-            with MariaDBConnectionPool() as conn:
+            with self.pool as conn:
                 with conn.cursor(dictionary=True) as cursor:
                     cursor.execute(
                         """
@@ -195,24 +201,28 @@ class ChannelMessageRepository:
                         """,
                         (guild_id,)
                     )
-                    result = cursor.fetchone()
+                    result = cursor.fetchall()
                     if result:
-                        return ChannelMessage(
-                            ChannelId=result['channel_id'],
-                            MessageId=result['message_id']
-                        )
-                    return None
+                        entries = []
+                        for row in result:
+                            entries.append( ChannelMessage(
+                                ChannelId=row['channel_id'],
+                                MessageId=row['message_id']
+                            ))
+                        return entries
+                    return []
         except mariadb.Error as e:
             print(f"Database error: {e}")
+            return []
 
 
 class ClanBattleBossEntryRepository:
     def __init__(self):
-        self.pool = MariaDBConnectionPool()
+        self.pool = db_pool
 
     def insert_clan_battle_boss_entry(self, clan_battle_boss_entry: ClanBattleBossEntry):
         try:
-            with MariaDBConnectionPool() as conn:
+            with self.pool as conn:
                 with conn.cursor(dictionary=True) as cursor:
                     cursor.execute(
                         """
@@ -237,13 +247,16 @@ class ClanBattleBossEntryRepository:
                          clan_battle_boss_entry.MaxHealth)
                     )
                 conn.commit()
+                clan_battle_boss_entry.ClanBattleBossEntryId = cursor.lastrowid
+                return clan_battle_boss_entry
         except mariadb.Error as e:
-            conn.rollback()
             print(f"Database error: {e}")
+            conn.rollback()
+            return None
 
     def get_last_by_message_id(self, message_id: int):
         try:
-            with MariaDBConnectionPool() as conn:
+            with self.pool as conn:
                 with conn.cursor(dictionary=True) as cursor:
                     cursor.execute(
                         """
@@ -265,23 +278,30 @@ class ClanBattleBossEntryRepository:
                     )
                     result = cursor.fetchone()
                     if result:
-                        return ClanBattleBossEntry(ClanBattleBossEntryId=result['clan_battle_boss_entry_id'],
-                                                   MessageId=result['message_id'],
-                                                   ClanBattlePeriodId=result['clan_battle_period_id'],
-                                                   ClanBattleBossId=result['clan_battle_boss_id'],
-                                                   Name=result['name'],
-                                                   Image=result['image'],
-                                                   Round=result['round'],
-                                                   CurrentHealth=result['current_health'],
-                                                   MaxHealth=result['max_health']
-                                                   )
+                        return ClanBattleBossEntry(
+                            ClanBattleBossEntryId=result['clan_battle_boss_entry_id'],
+                            MessageId=result['message_id'],
+                            ClanBattlePeriodId=result['clan_battle_period_id'],
+                            ClanBattleBossId=result['clan_battle_boss_id'],
+                            Name=result['name'],
+                            Image=result['image'],
+                            Round=result['round'],
+                            CurrentHealth=result['current_health'],
+                            MaxHealth=result['max_health']
+
+                        )
                     return None
         except mariadb.Error as e:
             print(f"Database error: {e}")
+            conn.close()
+            return None
+        finally:
+            if conn:
+                conn.close()
 
     def update_on_attack(self, clan_battle_boss_entry_id: int, current_health: int):
         try:
-            with MariaDBConnectionPool() as conn:
+            with self.pool as conn:
                 with conn.cursor(dictionary=True) as cursor:
                     cursor.execute(
                         """
@@ -289,22 +309,25 @@ class ClanBattleBossEntryRepository:
                         SET current_health = ?
                         WHERE clan_battle_boss_entry_id = ?
                         """,
-                        (current_health,
-                         clan_battle_boss_entry_id)
+                        (
+                            current_health,
+                            clan_battle_boss_entry_id
+                        )
                     )
                     conn.commit()
+                    return True
         except mariadb.Error as e:
-            conn.rollback()
             print(f"Database error: {e}")
-
+            conn.rollback()
+            return False
 
 class ClanBattleBossBookRepository:
     def __init__(self):
-        self.pool = MariaDBConnectionPool()
+        self.pool = db_pool
 
     def get_all_by_message_id(self, message_id: int):
         try:
-            with MariaDBConnectionPool() as conn:
+            with self.pool as conn:
                 with conn.cursor(dictionary=True) as cursor:
                     cursor.execute(
                         """
@@ -343,10 +366,11 @@ class ClanBattleBossBookRepository:
                     return []
         except mariadb.Error as e:
             print(f"Database error: {e}")
+            return []
 
     def get_one_by_message_id_and_player_id(self, message_id: int, player_id: int):
         try:
-            with MariaDBConnectionPool() as conn:
+            with self.pool as conn:
                 with conn.cursor(dictionary=True) as cursor:
                     cursor.execute(
                         """
@@ -385,10 +409,11 @@ class ClanBattleBossBookRepository:
                     return None
         except mariadb.Error as e:
             print(f"Database error: {e}")
+            return None
 
     def check_book_count_by_player_id(self, guild_id: int, player_id: int):
         try:
-            with MariaDBConnectionPool() as conn:
+            with self.pool as conn:
                 with conn.cursor(dictionary=True) as cursor:
                     cursor.execute(
                         """
@@ -413,10 +438,11 @@ class ClanBattleBossBookRepository:
                     return 0
         except mariadb.Error as e:
             print(f"Database error: {e}")
+            return 0
 
     def delete_book_by_id(self, clan_battle_boss_book_id: int):
         try:
-            with MariaDBConnectionPool() as conn:
+            with self.pool as conn:
                 with conn.cursor(dictionary=True) as cursor:
                     cursor.execute(
                         """
@@ -429,13 +455,15 @@ class ClanBattleBossBookRepository:
                         )
                     )
                     conn.commit()
+                    return True
         except mariadb.Error as e:
-            conn.rollback()
             print(f"Database error: {e}")
+            conn.rollback()
+            return False
 
     def insert_boss_book_entry(self, clan_battle_boss_book: ClanBattleBossBook):
         try:
-            with MariaDBConnectionPool() as conn:
+            with self.pool as conn:
                 with conn.cursor(dictionary=True) as cursor:
                     cursor.execute(
                         """
@@ -467,12 +495,13 @@ class ClanBattleBossBookRepository:
                     clan_battle_boss_book.ClanBattleBossBookId = cursor.lastrowid
                     return clan_battle_boss_book
         except mariadb.Error as e:
-            conn.rollback()
             print(f"Database error: {e}")
+            conn.rollback()
+            return None
 
     def update_damage_boss_book_by_id(self, clan_battle_boss_book_id: int, damage: int):
         try:
-            with MariaDBConnectionPool() as conn:
+            with self.pool as conn:
                 with conn.cursor(dictionary=True) as cursor:
                     cursor.execute(
                         """
@@ -486,18 +515,20 @@ class ClanBattleBossBookRepository:
                         )
                     )
                     conn.commit()
+                    return True
         except mariadb.Error as e:
-            conn.rollback()
             print(f"Database error: {e}")
+            conn.rollback()
+            return False
 
 
 class ClanBattlePeriodRepository:
     def __init__(self):
-        self.pool = MariaDBConnectionPool()
+        self.pool = db_pool
 
     def get_current_running_clan_battle_period(self):
         try:
-            with MariaDBConnectionPool() as conn:
+            with self.pool as conn:
                 with conn.cursor(dictionary=True) as cursor:
                     cursor.execute(
                         """
@@ -530,15 +561,16 @@ class ClanBattlePeriodRepository:
                     return None
         except mariadb.Error as e:
             print(f"Database error: {e}")
+            return None
 
 
 class ClanBattleBossRepository:
     def __init__(self):
-        self.pool = MariaDBConnectionPool()
+        self.pool = db_pool
 
     def get_one_by_clan_battle_boss_id(self, clan_battle_boss_id: int):
         try:
-            with MariaDBConnectionPool() as conn:
+            with self.pool as conn:
                 with conn.cursor(dictionary=True) as cursor:
                     cursor.execute(
                         """
@@ -564,15 +596,16 @@ class ClanBattleBossRepository:
                     return None
         except mariadb.Error as e:
             print(f"Database error: {e}")
+            return None
 
 
 class ClanBattleBossHealthRepository:
     def __init__(self):
-        self.pool = MariaDBConnectionPool()
+        self.pool = db_pool
 
-    def get_one_by_position_and_round(self, position: int, round: int):
+    def get_one_by_position_and_round(self, position: int, boss_round: int):
         try:
-            with MariaDBConnectionPool() as conn:
+            with self.pool as conn:
                 with conn.cursor(dictionary=True) as cursor:
                     cursor.execute(
                         """
@@ -585,7 +618,7 @@ class ClanBattleBossHealthRepository:
                         WHERE position = ?
                         AND ? BETWEEN round_from AND round_to
                         """,
-                        (position, round,)
+                        (position, boss_round,)
                     )
                     result = cursor.fetchone()
                     if result:
@@ -599,15 +632,16 @@ class ClanBattleBossHealthRepository:
                     return None
         except mariadb.Error as e:
             print(f"Database error: {e}")
+            return None
 
 
 class ClanBattleOverallEntryRepository:
     def __init__(self):
-        self.pool = MariaDBConnectionPool()
+        self.pool = db_pool
 
     def get_all_by_guild_id_boss_id_and_round(self, guild_id: int, clan_battle_boss_id: int, boss_round: int):
         try:
-            with MariaDBConnectionPool() as conn:
+            with self.pool as conn:
                 with conn.cursor(dictionary=True) as cursor:
                     cursor.execute(
                         """
@@ -658,10 +692,11 @@ class ClanBattleOverallEntryRepository:
                     return []
         except mariadb.Error as e:
             print(f"Database error: {e}")
+            return []
 
     def insert(self, cb_overall_entry: ClanBattleOverallEntry):
         try:
-            with MariaDBConnectionPool() as conn:
+            with self.pool as conn:
                 with conn.cursor(dictionary=True) as cursor:
                     cursor.execute(
                         """
@@ -701,12 +736,13 @@ class ClanBattleOverallEntryRepository:
                     cb_overall_entry.ClanBattleOverallEntryId = cursor.lastrowid
                     return cb_overall_entry
         except mariadb.Error as e:
-            conn.rollback()
             print(f"Database error: {e}")
+            conn.rollback()
+            return None
 
     def update_overall_link(self, cb_overall_entry_id: int, overall_parent_entry_id: int):
         try:
-            with MariaDBConnectionPool() as conn:
+            with self.pool as conn:
                 with conn.cursor(dictionary=True) as cursor:
                     cursor.execute(
                         """
@@ -721,13 +757,15 @@ class ClanBattleOverallEntryRepository:
                         )
                     )
                     conn.commit()
+                    return True
         except mariadb.Error as e:
-            conn.rollback()
             print(f"Database error: {e}")
+            conn.rollback()
+            return False
 
     def get_entry_count_by_guild_id_and_player_id(self, guild_id: int, player_id: int):
         try:
-            with MariaDBConnectionPool() as conn:
+            with self.pool as conn:
                 with conn.cursor(dictionary=True) as cursor:
                     cursor.execute(
                         """
@@ -753,10 +791,11 @@ class ClanBattleOverallEntryRepository:
                     return 0
         except mariadb.Error as e:
             print(f"Database error: {e}")
+            return 0
 
     def get_leftover_by_guild_id_and_player_id(self, guild_id: int, player_id: int):
         try:
-            with MariaDBConnectionPool() as conn:
+            with self.pool as conn:
                 with conn.cursor(dictionary=True) as cursor:
                     cursor.execute(
                         """
@@ -799,3 +838,4 @@ class ClanBattleOverallEntryRepository:
                     return []
         except mariadb.Error as e:
             print(f"Database error: {e}")
+            return []
