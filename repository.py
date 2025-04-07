@@ -728,8 +728,7 @@ class ClanBattleOverallEntryRepository:
                             cb_overall_entry.Damage,
                             cb_overall_entry.AttackType.name,
                             cb_overall_entry.LeftoverTime,
-                            cb_overall_entry.OverallParentEntryId,
-                            cb_overall_entry.EntryDate
+                            cb_overall_entry.OverallParentEntryId
                         )
                     )
                     conn.commit()
