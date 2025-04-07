@@ -26,8 +26,8 @@ class GuildRepository:
                     result = cursor.fetchone()
                     if result:
                         return Guild(
-                            GuildId=result['guild_id'],
-                            GuildName=result['guild_name']
+                            guild_id=result['guild_id'],
+                            guild_name=result['guild_name']
                         )
                     return None
         except mariadb.Error as e:
@@ -48,8 +48,8 @@ class GuildRepository:
                         VALUES (?, ?)
                         """,
                         (
-                            guild.GuildId,
-                            guild.GuildName,
+                            guild.guild_id,
+                            guild.guild_name,
                         )
                     )
                     conn.commit()
@@ -85,9 +85,9 @@ class GuildChannelRepository:
                         for row in result:
                             entries.append(
                                 Channel(
-                                    ChannelId=row['channel_id'],
-                                    GuildId=row['guild_id'],
-                                    ChannelType=row['channel_type']
+                                    channel_id=row['channel_id'],
+                                    guild_id=row['guild_id'],
+                                    channel_type=row['channel_type']
                                 )
                             )
                         return entries
@@ -111,12 +111,12 @@ class GuildChannelRepository:
                         VALUES (?, ?, ?)
                         """,
                         (
-                            channel.ChannelId,
-                            channel.GuildId,
-                            channel.ChannelType.name
+                            channel.channel_id,
+                            channel.guild_id,
+                            channel.channel_type.name
                         )
                     )
-                    channel.ChannelId = cursor.lastrowid
+                    channel.channel_id = cursor.lastrowid
                 conn.commit()
                 return channel
         except mariadb.Error as e:
@@ -135,12 +135,12 @@ class GuildChannelRepository:
                         WHERE guild_id = ? and channel_type = ?
                         """,
                         (
-                            channel.ChannelId,
-                            channel.GuildId,
-                            channel.ChannelType.name
+                            channel.channel_id,
+                            channel.guild_id,
+                            channel.channel_type.name
                         )
                     )
-                    channel.ChannelId = cursor.lastrowid
+                    channel.channel_id = cursor.lastrowid
                 conn.commit()
                 return channel
         except mariadb.Error as e:
@@ -162,8 +162,8 @@ class ChannelMessageRepository:
                         INSERT INTO channel_message (channel_id, message_id) 
                         VALUES (?, ?)
                         """,
-                        (channel_message.ChannelId,
-                         channel_message.MessageId)
+                        (channel_message.channel_id,
+                         channel_message.message_id)
                     )
                     conn.commit()
                     return channel_message
@@ -184,8 +184,8 @@ class ChannelMessageRepository:
                         WHERE channel_id = ?
                         """,
                         (
-                            channel_message.MessageId,
-                            channel_message.ChannelId,
+                            channel_message.message_id,
+                            channel_message.channel_id,
                         )
                     )
                     conn.commit()
@@ -235,8 +235,8 @@ class ChannelMessageRepository:
                     result = cursor.fetchone()
                     if result:
                         return ChannelMessage(
-                            ChannelId=result['channel_id'],
-                            MessageId=result['message_id']
+                            channel_id=result['channel_id'],
+                            message_id=result['message_id']
                         )
                     return None
         except mariadb.Error as e:
@@ -264,8 +264,8 @@ class ChannelMessageRepository:
                         entries = []
                         for row in result:
                             entries.append( ChannelMessage(
-                                ChannelId=row['channel_id'],
-                                MessageId=row['message_id']
+                                channel_id=row['channel_id'],
+                                message_id=row['message_id']
                             ))
                         return entries
                     return []
@@ -289,23 +289,23 @@ class ClanBattleBossEntryRepository:
                             clan_battle_period_id, 
                             clan_battle_boss_id, 
                             name, 
-                            image, 
-                            round, 
+                            image_path, 
+                            boss_round, 
                             current_health, 
                             max_health
                         ) 
                         VALUES (?, ?, ?, ?, ?, ?, ?, ?)
                         """,
-                        (clan_battle_boss_entry.MessageId,
-                         clan_battle_boss_entry.ClanBattlePeriodId,
-                         clan_battle_boss_entry.ClanBattleBossId,
-                         clan_battle_boss_entry.Name,
-                         clan_battle_boss_entry.Image,
-                         clan_battle_boss_entry.Round,
-                         clan_battle_boss_entry.CurrentHealth,
-                         clan_battle_boss_entry.MaxHealth)
+                        (clan_battle_boss_entry.message_id,
+                         clan_battle_boss_entry.clan_battle_period_id,
+                         clan_battle_boss_entry.clan_battle_boss_id,
+                         clan_battle_boss_entry.name,
+                         clan_battle_boss_entry.image_path,
+                         clan_battle_boss_entry.boss_round,
+                         clan_battle_boss_entry.current_health,
+                         clan_battle_boss_entry.max_health)
                     )
-                    clan_battle_boss_entry.ClanBattleBossEntryId = cursor.lastrowid
+                    clan_battle_boss_entry.clan_battle_boss_entry_id = cursor.lastrowid
                 conn.commit()
                 return clan_battle_boss_entry
         except mariadb.Error as e:
@@ -325,13 +325,13 @@ class ClanBattleBossEntryRepository:
                                clan_battle_period_id,
                                clan_battle_boss_id,
                                name,
-                               image,
-                               round,
+                               image_path,
+                               boss_round,
                                current_health,
                                max_health
                         FROM clan_battle_boss_entry
                         WHERE message_id = ?
-                        ORDER BY round, clan_battle_boss_entry_id DESC
+                        ORDER BY boss_round, clan_battle_boss_entry_id DESC
                         LIMIT 1
                         """,
                         (message_id,)
@@ -339,15 +339,15 @@ class ClanBattleBossEntryRepository:
                     result = cursor.fetchone()
                     if result:
                         return ClanBattleBossEntry(
-                            ClanBattleBossEntryId=result['clan_battle_boss_entry_id'],
-                            MessageId=result['message_id'],
-                            ClanBattlePeriodId=result['clan_battle_period_id'],
-                            ClanBattleBossId=result['clan_battle_boss_id'],
-                            Name=result['name'],
-                            Image=result['image'],
-                            Round=result['round'],
-                            CurrentHealth=result['current_health'],
-                            MaxHealth=result['max_health']
+                            clan_battle_boss_entry_id=result['clan_battle_boss_entry_id'],
+                            message_id=result['message_id'],
+                            clan_battle_period_id=result['clan_battle_period_id'],
+                            clan_battle_boss_id=result['clan_battle_boss_id'],
+                            name=result['name'],
+                            image_path=result['image_path'],
+                            boss_round=result['boss_round'],
+                            current_health=result['current_health'],
+                            max_health=result['max_health']
                         )
                     return None
         except mariadb.Error as e:
@@ -408,15 +408,15 @@ class ClanBattleBossBookRepository:
                         entries = []
                         for row in result:
                             entries.append(ClanBattleBossBook(
-                                ClanBattleBossBookId=row['clan_battle_boss_book_id'],
-                                ClanBattleBossEntryId=row['clan_battle_boss_entry_id'],
-                                PlayerId=row['player_id'],
-                                PlayerName=row['player_name'],
-                                AttackType=row['attack_type'],
-                                Damage=row['damage'],
-                                ClanBattleOverallEntryId=row['clan_battle_overall_entry_id'],
-                                LeftoverTime=row['leftover_time'],
-                                EntryDate=row['entry_date']
+                                clan_battle_boss_book_id=row['clan_battle_boss_book_id'],
+                                clan_battle_boss_entry_id=row['clan_battle_boss_entry_id'],
+                                player_id=row['player_id'],
+                                player_name=row['player_name'],
+                                attack_type=row['attack_type'],
+                                damage=row['damage'],
+                                clan_battle_overall_entry_id=row['clan_battle_overall_entry_id'],
+                                leftover_time=row['leftover_time'],
+                                entry_date=row['entry_date']
                                 )
                             )
                         return entries
@@ -454,15 +454,15 @@ class ClanBattleBossBookRepository:
                     result = cursor.fetchone()
                     if result:
                         return ClanBattleBossBook(
-                            ClanBattleBossBookId=result['clan_battle_boss_book_id'],
-                            ClanBattleBossEntryId=result['clan_battle_boss_entry_id'],
-                            PlayerId=result['player_id'],
-                            PlayerName=result['player_name'],
-                            AttackType=result['attack_type'],
-                            Damage=result['damage'],
-                            ClanBattleOverallEntryId=result['clan_battle_overall_entry_id'],
-                            LeftoverTime=result['leftover_time'],
-                            EntryDate=result['entry_date']
+                            clan_battle_boss_book_id=result['clan_battle_boss_book_id'],
+                            clan_battle_boss_entry_id=result['clan_battle_boss_entry_id'],
+                            player_id=result['player_id'],
+                            player_name=result['player_name'],
+                            attack_type=result['attack_type'],
+                            damage=result['damage'],
+                            clan_battle_overall_entry_id=result['clan_battle_overall_entry_id'],
+                            leftover_time=result['leftover_time'],
+                            entry_date=result['entry_date']
                         )
                     return None
         except mariadb.Error as e:
@@ -542,17 +542,17 @@ class ClanBattleBossBookRepository:
                         VALUES (?, ?, ?, ?, ?, ?, ?, ?, SYSDATE())
                         """,
                         (
-                            clan_battle_boss_book.ClanBattleBossEntryId,
-                            clan_battle_boss_book.ClanBattleBossEntryId,
-                            clan_battle_boss_book.PlayerId,
-                            clan_battle_boss_book.PlayerName,
-                            clan_battle_boss_book.AttackType.name,
-                            clan_battle_boss_book.Damage,
-                            clan_battle_boss_book.ClanBattleOverallEntryId,
-                            clan_battle_boss_book.LeftoverTime
+                            clan_battle_boss_book.clan_battle_boss_entry_id,
+                            clan_battle_boss_book.clan_battle_boss_entry_id,
+                            clan_battle_boss_book.player_id,
+                            clan_battle_boss_book.player_name,
+                            clan_battle_boss_book.attack_type.name,
+                            clan_battle_boss_book.damage,
+                            clan_battle_boss_book.clan_battle_overall_entry_id,
+                            clan_battle_boss_book.leftover_time
                         )
                     )
-                    clan_battle_boss_book.ClanBattleBossBookId = cursor.lastrowid
+                    clan_battle_boss_book.clan_battle_boss_book_id = cursor.lastrowid
                 conn.commit()
                 return clan_battle_boss_book
         except mariadb.Error as e:
@@ -611,15 +611,15 @@ class ClanBattlePeriodRepository:
                     result = cursor.fetchone()
                     if result:
                         return ClanBattlePeriod(
-                            ClanBattlePeriodId=result['clan_battle_period_id'],
-                            ClanBattlePeriodName=result['clan_battle_period_name'],
-                            DateFrom=result['date_from'],
-                            DateTo=result['date_to'],
-                            Boss1Id=result['boss1_id'],
-                            Boss2Id=result['boss2_id'],
-                            Boss3Id=result['boss3_id'],
-                            Boss4Id=result['boss4_id'],
-                            Boss5Id=result['boss5_id']
+                            clan_battle_period_id=result['clan_battle_period_id'],
+                            clan_battle_period_name=result['clan_battle_period_name'],
+                            date_from=result['date_from'],
+                            date_to=result['date_to'],
+                            boss1_id=result['boss1_id'],
+                            boss2_id=result['boss2_id'],
+                            boss3_id=result['boss3_id'],
+                            boss4_id=result['boss4_id'],
+                            boss5_id=result['boss5_id']
                         )
                     return None
         except mariadb.Error as e:
@@ -651,11 +651,11 @@ class ClanBattleBossRepository:
                     result = cursor.fetchone()
                     if result:
                         return ClanBattleBoss(
-                            ClanBattleBossId=result['clan_battle_boss_id'],
-                            Name=result['name'],
-                            Description=result['description'],
-                            ImagePath=result['image_path'],
-                            Position=result['position']
+                            clan_battle_boss_id=result['clan_battle_boss_id'],
+                            name=result['name'],
+                            description=result['description'],
+                            image_path=result['image_path'],
+                            position=result['position']
                         )
                     return None
         except mariadb.Error as e:
@@ -688,11 +688,11 @@ class ClanBattleBossHealthRepository:
                     result = cursor.fetchone()
                     if result:
                         return ClanBattleBossHealth(
-                            ClanBattleBossHealthId=result['clan_battle_boss_health_id'],
-                            Position=result['position'],
-                            RoundFrom=result['round_from'],
-                            RoundTo=result['round_to'],
-                            Health=result['health']
+                            clan_battle_boss_health_id=result['clan_battle_boss_health_id'],
+                            position=result['position'],
+                            round_from=result['round_from'],
+                            round_to=result['round_to'],
+                            health=result['health']
                         )
                     return None
         except mariadb.Error as e:
@@ -717,7 +717,7 @@ class ClanBattleOverallEntryRepository:
                                 clan_battle_boss_id,
                                 player_id,
                                 player_name,
-                                round,
+                                boss_round,
                                 attack_type,
                                 damage,
                                 leftover_time,
@@ -726,7 +726,7 @@ class ClanBattleOverallEntryRepository:
                         FROM clan_battle_overall_entry
                         WHERE guild_id = ? 
                         AND clan_battle_boss_id = ? 
-                        AND round = ?
+                        AND boss_round = ?
                         ORDER BY entry_date
                         """,
                         (
@@ -740,18 +740,18 @@ class ClanBattleOverallEntryRepository:
                         entries = []
                         for row in result:
                             entry = ClanBattleOverallEntry(
-                                ClanBattleOverallEntryId=row['clan_battle_overall_entry_id'],
-                                GuildId=row['guild_id'],
-                                ClanBattlePeriodId=row['clan_battle_period_id'],
-                                ClanBattleBossId=row['clan_battle_boss_id'],
-                                PlayerId=row['player_id'],
-                                PlayerName=row['player_name'],
-                                Round=row['round'],
-                                AttackType=row['attack_type'],
-                                Damage=row['damage'],
-                                LeftoverTime=row['leftover_time'],
-                                OverallParentEntryId=row['overall_parent_entry_id'],
-                                EntryDate=row['entry_date']
+                                clan_battle_overall_entry_id=row['clan_battle_overall_entry_id'],
+                                guild_id=row['guild_id'],
+                                clan_battle_period_id=row['clan_battle_period_id'],
+                                clan_battle_boss_id=row['clan_battle_boss_id'],
+                                player_id=row['player_id'],
+                                player_name=row['player_name'],
+                                round=row['boss_round'],
+                                attack_type=row['attack_type'],
+                                damage=row['damage'],
+                                leftover_time=row['leftover_time'],
+                                overall_parent_entry_id=row['overall_parent_entry_id'],
+                                entry_date=row['entry_date']
                             )
                             entries.append(entry)
                         return entries
@@ -773,7 +773,7 @@ class ClanBattleOverallEntryRepository:
                             clan_battle_boss_id, 
                             player_id, 
                             player_name, 
-                            round, 
+                            boss_round, 
                             damage, 
                             attack_type, 
                             leftover_time, 
@@ -786,19 +786,19 @@ class ClanBattleOverallEntryRepository:
                         )
                         """,
                         (
-                            cb_overall_entry.GuildId,
-                            cb_overall_entry.ClanBattlePeriodId,
-                            cb_overall_entry.ClanBattleBossId,
-                            cb_overall_entry.PlayerId,
-                            cb_overall_entry.PlayerName,
-                            cb_overall_entry.Round,
-                            cb_overall_entry.Damage,
-                            cb_overall_entry.AttackType.name,
-                            cb_overall_entry.LeftoverTime,
-                            cb_overall_entry.OverallParentEntryId
+                            cb_overall_entry.guild_id,
+                            cb_overall_entry.clan_battle_period_id,
+                            cb_overall_entry.clan_battle_boss_id,
+                            cb_overall_entry.player_id,
+                            cb_overall_entry.player_name,
+                            cb_overall_entry.round,
+                            cb_overall_entry.damage,
+                            cb_overall_entry.attack_type.name,
+                            cb_overall_entry.leftover_time,
+                            cb_overall_entry.overall_parent_entry_id
                         )
                     )
-                    cb_overall_entry.ClanBattleOverallEntryId = cursor.lastrowid
+                    cb_overall_entry.clan_battle_overall_entry_id = cursor.lastrowid
                 conn.commit()
                 return cb_overall_entry
         except mariadb.Error as e:
@@ -895,12 +895,12 @@ class ClanBattleOverallEntryRepository:
                         entries = []
                         for row in result:
                             entry = ClanBattleLeftover(
-                                ClanBattleOverallEntryId=row['clan_battle_overall_entry_id'],
-                                ClanBattleBossId=row['clan_battle_boss_id'],
-                                ClanBattleBossName=row['name'],
-                                PlayerId=row['player_id'],
-                                AttackType=row['attack_type'],
-                                LeftoverTime=row['leftover_time'],
+                                clan_battle_overall_entry_id=row['clan_battle_overall_entry_id'],
+                                clan_battle_boss_id=row['clan_battle_boss_id'],
+                                clan_battle_boss_name=row['name'],
+                                player_id=row['player_id'],
+                                attack_type=row['attack_type'],
+                                leftover_time=row['leftover_time'],
                             )
                             entries.append(entry)
                         return entries
