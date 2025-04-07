@@ -1,109 +1,108 @@
 from datetime import datetime
 
-import attr
+from attrs import field, define
+
 from enums import *
 
 
-@attr.s
+@define
 class Guild:
-    GuildId: int = attr.ib(default=None)
-    GuildName: str = attr.ib(default=None)
+    GuildId: int = field(default=None)
+    GuildName: str = field(default=None)
 
 
-@attr.s
+@define
 class Channel:
-    ChannelId: int = attr.ib(default=None)
-    GuildId: int = attr.ib(default=None)
-    ChannelType: ChannelEnum = attr.ib(default=None, converter=lambda x: ChannelEnum[x] if isinstance(x, str) else x)
+    ChannelId: int = field(default=None)
+    GuildId: int = field(default=None)
+    ChannelType: ChannelEnum = field(default=None, converter=lambda x: ChannelEnum[x] if isinstance(x, str) else x)
 
 
-@attr.s
+@define
 class ChannelMessage:
-    ChannelId: int = attr.ib(default=None)
-    MessageId: int = attr.ib(default=None)
+    ChannelId: int = field(default=None)
+    MessageId: int = field(default=None)
 
 
-@attr.s
+@define
 class ClanBattleBossEntry:
-    ClanBattleBossEntryId: int = attr.ib(default=None)
-    MessageId: int = attr.ib(default=None)
-    ClanBattlePeriodId: int = attr.ib(default=None)
-    ClanBattleBossId: int = attr.ib(default=None)
-    Name: str = attr.ib(default=None)
-    Image: str = attr.ib(default=None)
-    Round: int = attr.ib(default=None)
-    CurrentHealth: int = attr.ib(default=None)
-    MaxHealth: int = attr.ib(default=None)
+    ClanBattleBossEntryId: int = field(default=None)
+    MessageId: int = field(default=None)
+    ClanBattlePeriodId: int = field(default=None)
+    ClanBattleBossId: int = field(default=None)
+    Name: str = field(default=None)
+    Image: str = field(default=None)
+    Round: int = field(default=None)
+    CurrentHealth: int = field(default=None)
+    MaxHealth: int = field(default=None)
 
 
-@attr.s
+@define
 class ClanBattleBossBook:
-    ClanBattleBossBookId: int = attr.ib(default=None)
-    ClanBattleBossEntryId: int = attr.ib(default=None)
-    PlayerId: int = attr.ib(default=None)
-    PlayerName: str = attr.ib(default=None)
-    AttackType: AttackTypeEnum = attr.ib(default=None, converter=lambda x: AttackTypeEnum[x] if isinstance(x, str) else x)
-    Damage: int = attr.ib(default=0)
-    ClanBattleOverallEntryId: int = attr.ib(default=None)
-    LeftoverTime: int = attr.ib(default=0)
-    EntryDate: datetime = attr.ib(default=None)
+    ClanBattleBossBookId: int = field(default=None)
+    ClanBattleBossEntryId: int = field(default=None)
+    PlayerId: int = field(default=None)
+    PlayerName: str = field(default=None)
+    AttackType: AttackTypeEnum = field(converter=lambda x: AttackTypeEnum[x] if isinstance(x, str) else x, default=None)
+    Damage: int = field(default=None)
+    ClanBattleOverallEntryId: int = field(default=None)
+    LeftoverTime: int = field(default=None)
+    EntryDate: datetime = field(default=None)
 
 
-@attr.s
+@define
 class ClanBattleBoss:
-    ClanBattleBossId: int = attr.ib(default=None)
-    Name: str = attr.ib(default=None)
-    Description: str = attr.ib(default=None)
-    ImagePath: str = attr.ib(default=None)
-    Position: int = attr.ib(default=None)
+    ClanBattleBossId: int = field(default=None)
+    Name: str = field(default=None)
+    Description: str = field(default=None)
+    ImagePath: str = field(default=None)
+    Position: int = field(default=None)
 
 
-@attr.s
+@define
 class ClanBattleBossHealth:
-    ClanBattleBossHealthId: int = attr.ib(default=None)
-    Position: int = attr.ib(default=None)
-    RoundFrom: int = attr.ib(default=None)
-    RoundTo: int = attr.ib(default=None)
-    Health: int = attr.ib(default=None)
+    ClanBattleBossHealthId: int = field(default=None)
+    Position: int = field(default=None)
+    RoundFrom: int = field(default=None)
+    RoundTo: int = field(default=None)
+    Health: int = field(default=None)
 
 
-@attr.s
+@define
 class ClanBattlePeriod:
-    ClanBattlePeriodId: int = attr.ib(default=None)
-    ClanBattlePeriodName: str = attr.ib(default=None)
-    DateFrom: datetime = attr.ib(default=None)
-    DateTo: datetime = attr.ib(default=None)
-    Boss1Id: int = attr.ib(default=None)
-    Boss2Id: int = attr.ib(default=None)
-    Boss3Id: int = attr.ib(default=None)
-    Boss4Id: int = attr.ib(default=None)
-    Boss5Id: int = attr.ib(default=None)
+    ClanBattlePeriodId: int = field(default=None)
+    ClanBattlePeriodName: str = field(default=None)
+    DateFrom: datetime = field(default=None)
+    DateTo: datetime = field(default=None)
+    Boss1Id: int = field(default=None)
+    Boss2Id: int = field(default=None)
+    Boss3Id: int = field(default=None)
+    Boss4Id: int = field(default=None)
+    Boss5Id: int = field(default=None)
 
 
-@attr.s
+@define
 class ClanBattleOverallEntry:
-    ClanBattleOverallEntryId: int = attr.ib(default=None)
-    GuildId: int = attr.ib(default=None)
-    ClanBattlePeriodId: int = attr.ib(default=None)
-    ClanBattleBossId: int = attr.ib(default=None)
-    PlayerId: int = attr.ib(default=None)
-    PlayerName: str = attr.ib(default=None)
-    Round: int = attr.ib(default=None)
-    AttackType: AttackTypeEnum = attr.ib(default=None,
-                                         converter=lambda x: AttackTypeEnum[x] if isinstance(x, str) else x)
-    Damage: int = attr.ib(default=None)
-    LeftoverTime: int = attr.ib(default=None)
-    OverallParentEntryId: int = attr.ib(default=None)
-    EntryDate: datetime = attr.ib(default=None)
+    ClanBattleOverallEntryId: int = field(default=None)
+    GuildId: int = field(default=None)
+    ClanBattlePeriodId: int = field(default=None)
+    ClanBattleBossId: int = field(default=None)
+    PlayerId: int = field(default=None)
+    PlayerName: str = field(default=None)
+    Round: int = field(default=None)
+    AttackType: AttackTypeEnum = field(converter=lambda x: AttackTypeEnum[x] if isinstance(x, str) else x, default=None)
+    Damage: int = field(default=None)
+    LeftoverTime: int = field(default=None)
+    OverallParentEntryId: int = field(default=None)
+    EntryDate: datetime = field(default=None)
 
 
-@attr.s
+@define
 class ClanBattleLeftover:
-    ClanBattleOverallEntryId: int = attr.ib(default=None)
-    ClanBattleBossId: int = attr.ib(default=None)
-    ClanBattleBossName: str = attr.ib(default=None)
-    PlayerId: int = attr.ib(default=None)
-    AttackType: AttackTypeEnum = attr.ib(default=None,
-                                         converter=lambda x: AttackTypeEnum[x] if isinstance(x, str) else x)
-    LeftoverTime: int = attr.ib(default=None)
-    OverallParentEntryId: int = attr.ib(default=None)
+    ClanBattleOverallEntryId: int = field(default=None)
+    ClanBattleBossId: int = field(default=None)
+    ClanBattleBossName: str = field(default=None)
+    PlayerId: int = field(default=None)
+    AttackType: AttackTypeEnum = field(converter=lambda x: AttackTypeEnum[x] if isinstance(x, str) else x, default=None)
+    LeftoverTime: int = field(default=None)
+    OverallParentEntryId: int = field(default=None)
