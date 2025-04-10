@@ -45,10 +45,11 @@ class KuriLogger:
         self.console_handler.setLevel(console_level)
 
         # Create a formatter and attach it to the handlers
-        self.file_formatter = logging.Formatter('%(asctime)s [%(threadName)s] [%(levelname)s] %(name): %(message)s',
-                                           datefmt='%Y-%m-%d %H:%M:%S')
-        self.console_formatter = logging.Formatter('%(asctime)s [%(threadName)s] [%(levelname)s] %(name)-20s: %(message)s',
-                                           datefmt='%Y-%m-%d %H:%M:%S')
+        self.file_formatter = logging.Formatter('%(asctime)s [%(threadName)s] [%(levelname)s] %(name)s: %(message)s',
+                                                datefmt='%Y-%m-%d %H:%M:%S')
+        self.console_formatter = logging.Formatter(
+            '%(asctime)s [%(threadName)s] [%(levelname)s] %(name)-20s: %(message)s',
+            datefmt='%Y-%m-%d %H:%M:%S')
         self.file_handler.setFormatter(self.file_formatter)
         self.console_handler.setFormatter(self.console_formatter)
 

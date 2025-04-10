@@ -5,7 +5,9 @@ import utils
 from logger import KuriLogger
 from repository import *
 from transactional import transactional
+from locale import Locale
 
+l = Locale()
 
 class Services:
     _instance = None
@@ -39,8 +41,8 @@ class MainService:
             clan_battle_period = self.services.clan_battle_period_repo.get_current_cb_period()
 
             if clan_battle_period is None:
-                self.logger.error("Need setup on Database !")
-                return service_result.set_error("Need setup on Database !")
+                self.logger.error("Need Database setup !")
+                return service_result.set_error("Need Database setup !")
 
             guild_id = guild.id
             guild_db = await self.guild_setup(conn, guild_id=guild.id, guild_name=guild.name)
@@ -65,7 +67,7 @@ class MainService:
                     embed_result = await self.refresh_clan_battle_boss_embeds(guild_id=guild_id,
                                                                               message_id=message.result.id)
                     if embed_result.is_success:
-                        await message.result.edit(embeds=embed_result.result, view=utils.create_view())
+                        await message.result.edit(embeds=embed_result.result, view=utils.get_button_view(guild_id))
 
             service_result.set_success(None)
 
@@ -148,6 +150,7 @@ class MainService:
     async def setup_channel_message(self, conn, enum: ChannelEnum, channel: GuildChannel) -> ServiceResult[
         Optional[Message]]:
         service_result = ServiceResult[Optional[Message]]()
+        guild_id = channel.guild.id
 
         try:
             # Return if not Text Channel
@@ -166,7 +169,7 @@ class MainService:
             ch_message = self.services.channel_message_repo.get_channel_message_by_channel_id(channel_id=channel.id)
 
             if ch_message is None:
-                message = await channel.send(content="Preparing data . . .")
+                message = await channel.send(content=l.t(guild_id, "ui.status.preparing_data"))
                 ch_message = ChannelMessage(
                     channel_id=channel.id,
                     message_id=message.id,
@@ -175,7 +178,7 @@ class MainService:
 
             message = await utils.discord_try_fetch_message(channel, ch_message.message_id)
             if message is None:
-                message = await channel.send(content="Preparing data . . .")
+                message = await channel.send(content=l.t(guild_id, "ui.status.preparing_data"))
                 ch_message = ChannelMessage(
                     channel_id=channel.id,
                     message_id=message.id,
@@ -248,7 +251,7 @@ class MainService:
             # Header
             entry = self.services.clan_battle_boss_entry_repo.get_last_by_message_id(message_id=message_id)
 
-            embeds.append(utils.create_header_embed(entry))
+            embeds.append(utils.create_header_embed(guild_id, entry))
 
             # Entry
             cb_overall_repository = ClanBattleOverallEntryRepository()
@@ -257,13 +260,13 @@ class MainService:
                                                                                        boss_round=entry.boss_round)
 
             if len(done_entries) > 0:
-                embeds.append(utils.create_done_embed(done_entries))
+                embeds.append(utils.create_done_embed(guild_id, done_entries))
 
             # Book
             book_entries = self.services.clan_battle_boss_book_repo.get_all_by_message_id(message_id=message_id)
 
             if len(book_entries) > 0:
-                embeds.append(utils.create_book_embed(book_entries))
+                embeds.append(utils.create_book_embed(guild_id, book_entries))
 
             service_result.set_success(embeds)
 
@@ -419,14 +422,14 @@ class MainService:
                 boss_round=boss_entry.boss_round)
 
             await prev_msg.edit(embeds=[
-                utils.create_header_embed(cb_boss_entry=boss_entry, include_image=False,
+                utils.create_header_embed(guild_id=guild_id, cb_boss_entry=boss_entry, include_image=False,
                                           default_color=discord.Color.dark_grey()),
-                utils.create_done_embed(list_cb_overall_entry=done_entries, default_color=discord.Color.dark_grey())],
+                utils.create_done_embed(guild_id=guild_id, list_cb_overall_entry=done_entries, default_color=discord.Color.dark_grey())],
                 view=None)
 
             # Generate New One
             await interaction.channel.send(
-                content=f"Boss killed by {interaction.user.display_name} with {attack_type.value} ({leftover_time}s)")
+                content=f"{l.t(guild_id, "ui.events.boss_killed", user=interaction.user.display_name, attack_type=attack_type.value, leftover_time=leftover_time)}")
 
             next_round = boss_entry.boss_round + 1
 
@@ -447,7 +450,7 @@ class MainService:
                 service_result.set_error(f"Period is None")
                 return service_result
 
-            new_message = await interaction.channel.send(content="Preparing data . . .")
+            new_message = await interaction.channel.send(content=l.t(guild_id, "ui.status.preparing_data"))
             channel_message = ChannelMessage(
                 channel_id=channel_id,
                 message_id=new_message.id,

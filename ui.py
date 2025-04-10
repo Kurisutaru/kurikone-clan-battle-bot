@@ -5,20 +5,22 @@ import enums
 import utils
 from config import config
 from enums import EmojiEnum, AttackTypeEnum
+from locale import Locale
 from logger import KuriLogger
 from models import ClanBattleLeftover
 from services import ClanBattleBossBookService, ClanBattleOverallEntryService, MainService, ClanBattleBossEntryService
 
 NEW_LINE = "\n"
 
+l = Locale()
 
 # Book Button
 class BookButton(Button):
-    def __init__(self):
+    def __init__(self, text : str = EmojiEnum.BOOK.name.capitalize()):
         self.clan_battle_boss_book_service = ClanBattleBossBookService()
         self.clan_battle_overall_entry_service = ClanBattleOverallEntryService()
         self.logger = KuriLogger()
-        super().__init__(label=EmojiEnum.BOOK.name.capitalize(),
+        super().__init__(label= text,
                          style=discord.ButtonStyle.primary,
                          emoji=EmojiEnum.BOOK.value,
                          row=0)
@@ -35,7 +37,7 @@ class BookButton(Button):
             return
 
         if boss_book.result > 0:
-            await utils.discord_resp_send_msg(interaction=interaction, message="## Already booked !")
+            await utils.discord_resp_send_msg(interaction=interaction, message=f"## {l.t(guild_id, "ui.status.booked")}")
             return
 
         entry_count = await self.clan_battle_overall_entry_service.get_player_overall_entry_count(
@@ -69,25 +71,29 @@ class BookButton(Button):
             view.add_item(BookLeftoverButton(leftover=left_data, message_id=message_id))
 
         await interaction.response.send_message(
-            f"## Choose your Entry Type [{utils.reduce_int_ab_non_zero(a=3, b=count)}/3]", view=view,
+            f"## {l.t(guild_id, "ui.prompts.choose_entry_type", count_left=utils.reduce_int_ab_non_zero(a=3, b=count)) }", view=view,
             ephemeral=True, delete_after=15)
 
 
 # Cancel Button
 class CancelButton(Button):
-    def __init__(self):
+    def __init__(self, text = EmojiEnum.CANCEL.name.capitalize()):
         self.main_service = MainService()
         self.clan_battle_boss_book_service = ClanBattleBossBookService()
         self.logger = KuriLogger()
-        super().__init__(label=EmojiEnum.CANCEL.name.capitalize(),
+        super().__init__(label=text,
                          style=discord.ButtonStyle.danger,
                          emoji=EmojiEnum.CANCEL.value,
                          row=0)
 
     async def callback(self, interaction: discord.Interaction):
+        guild_id = interaction.guild_id
+        message_id = interaction.message.id
+        user_id = interaction.user.id
         book_result = await self.clan_battle_boss_book_service.get_player_book_entry(
-            message_id=interaction.message.id,
-            player_id=interaction.user.id)
+            message_id=message_id,
+            player_id=user_id
+        )
 
         if not book_result.is_success or book_result.result is None:
             await interaction.response.defer(ephemeral=True)
@@ -95,64 +101,72 @@ class CancelButton(Button):
             return
 
         await self.clan_battle_boss_book_service.delete_book_by_id(book_id=book_result.result.clan_battle_boss_book_id)
-        embeds = await self.main_service.refresh_clan_battle_boss_embeds(guild_id=interaction.guild_id,
-                                                                         message_id=interaction.message.id)
+        embeds = await self.main_service.refresh_clan_battle_boss_embeds(guild_id=guild_id,
+                                                                         message_id=message_id)
         if not embeds.is_success:
             await interaction.response.defer(ephemeral=True)
             self.logger.error(embeds.error_messages)
             return
 
-        await interaction.message.edit(embeds=embeds.result, view=create_view())
+        await interaction.message.edit(embeds=embeds.result, view=ButtonView(guild_id))
         await interaction.response.defer(ephemeral=True)
 
 
 # Entry Button
 class EntryButton(Button):
-    def __init__(self):
+    def __init__(self, text: str = EmojiEnum.ENTRY.name.capitalize()):
         self.clan_battle_book_service = ClanBattleBossBookService()
-        super().__init__(label=EmojiEnum.ENTRY.name.capitalize(),
+        super().__init__(label=text,
                          style=discord.ButtonStyle.primary,
                          emoji=EmojiEnum.ENTRY.value,
                          row=1)
 
     async def callback(self, interaction: discord.Interaction):
-        book = await self.clan_battle_book_service.get_player_book_entry(message_id=interaction.message.id,
-                                                                         player_id=interaction.user.id)
+        guild_id = interaction.guild_id
+        user_id = interaction.user.id
+        message_id = interaction.message.id
+        book = await self.clan_battle_book_service.get_player_book_entry(message_id=message_id,
+                                                                         player_id=user_id)
         if book.is_success and book.result is None:
-            await utils.discord_resp_send_msg(interaction=interaction, message="## Not Booked")
+            await utils.discord_resp_send_msg(interaction=interaction, message=f"## {l.t(guild_id, "ui.status.not_yet_booked")}")
             return
 
-        modal = EntryInputModal()
+        modal = EntryInputModal(guild_id)
         await interaction.response.send_modal(modal)
 
 
 # Entry Input
-class EntryInputModal(Modal, title="Entry Input"):
-    def __init__(self):
-        super().__init__()
+class EntryInputModal(Modal):
+    def __init__(self, guild_id:int) -> None:
+        super().__init__(
+            title=l.t(guild_id, "ui.popup.entry_input.title")
+        )
         self.main_service = MainService()
         self.logger = KuriLogger()
         self.clan_battle_boss_book_service = ClanBattleBossBookService()
+        self.user_input.label = l.t(guild_id, "ui.popup.entry_input.label")
+        self.user_input.placeholder = l.t(guild_id, "ui.popup.entry_input.placeholder")
 
     # Define a text input
     user_input = TextInput(
-        label="Entry Damage",
-        placeholder="123456789",
+        label="Leftover Time (in second)",
+        placeholder="20",
         style=discord.TextStyle.short,
         required=True,
         min_length=1,
-        max_length=10
+        max_length=2
     )
 
     async def on_submit(self, interaction: discord.Interaction):
+        guild_id = interaction.guild_id
         user_id = interaction.user.id
         message_id = interaction.message.id
         # Handle the submitted input
         if not self.user_input.value.isdigit():
-            await utils.discord_resp_send_msg(interaction=interaction, message=f"## Number only !")
+            await utils.discord_resp_send_msg(interaction=interaction, message=f"## {l.t(guild_id, "ui.validation.only_numbers_allowed")}")
             return
         if int(self.user_input.value) < 1:
-            await utils.discord_resp_send_msg(interaction=interaction, message=f"## Must be higher than 0 !")
+            await utils.discord_resp_send_msg(interaction=interaction, message=f"## {l.t(guild_id, "ui.validation.must_be_greater_than_zero")}")
             return
 
         # Update damage
@@ -186,21 +200,22 @@ class EntryInputModal(Modal, title="Entry Input"):
                 self.logger.error(embeds.error_messages)
                 return
 
-            await interaction.message.edit(embeds=embeds.result, view=create_view())
+            await interaction.message.edit(embeds=embeds.result, view=ButtonView(guild_id))
 
         await interaction.response.defer(ephemeral=True)
 
 
 # Done Button
 class DoneButton(Button):
-    def __init__(self):
+    def __init__(self, text : str= EmojiEnum.DONE.name.capitalize()):
         self.clan_battle_book_service = ClanBattleBossBookService()
-        super().__init__(label=EmojiEnum.DONE.name.capitalize(),
+        super().__init__(label=text,
                          style=discord.ButtonStyle.green,
                          emoji=EmojiEnum.DONE.value,
                          row=1)
 
     async def callback(self, interaction: discord.Interaction):
+        guild_id = interaction.guild_id
         user_id = interaction.user.id
         message_id = interaction.message.id
         book_result = await self.clan_battle_book_service.get_player_book_entry(message_id=message_id,
@@ -208,11 +223,11 @@ class DoneButton(Button):
         book = book_result.result
 
         if book_result.is_success and book_result.result is None:
-            await utils.discord_resp_send_msg(interaction=interaction, message="## Not Booked")
+            await utils.discord_resp_send_msg(interaction=interaction, message=f"## {l.t(guild_id, "ui.status.not_yet_booked")}")
             return
 
         if book.damage is None:
-            await utils.discord_resp_send_msg(interaction=interaction, message="## Input entry first !")
+            await utils.discord_resp_send_msg(interaction=interaction, message=f"## {l.t(guild_id, "ui.validation.enter_entry_type_first")}")
             return
 
         message_id = interaction.message.id
@@ -220,7 +235,7 @@ class DoneButton(Button):
         view.add_item(DoneOkButton(message_id=message_id))
         view.add_item(ConfirmationNoCancelButton(emoji_param=EmojiEnum.NO))
 
-        await interaction.response.send_message(content=f"## Are you sure want to Mark your entry as Done ?",
+        await interaction.response.send_message(content=f"## {l.t(guild_id, "ui.prompts.confirm_mark_as_done")}",
                                                 view=view, ephemeral=True,
                                                 delete_after=config.MESSAGE_DEFAULT_DELETE_AFTER_LONG)
 
@@ -257,23 +272,24 @@ class DoneOkButton(Button):
                 self.logger.error(embeds.error_messages)
                 return
 
-            await message.edit(embeds=embeds.result, view=create_view())
+            await message.edit(embeds=embeds.result, view=ButtonView(guild_id))
 
         await utils.discord_close_response(interaction=interaction)
 
 
 # Dead Button
 class DeadButton(Button):
-    def __init__(self):
+    def __init__(self, text: str = EmojiEnum.FINISH.value):
         self.clan_battle_boss_book_service = ClanBattleBossBookService()
         self.clan_battle_boss_entry_service = ClanBattleBossEntryService()
         self.logger = KuriLogger()
-        super().__init__(label="Dead",
+        super().__init__(label=text,
                          style=discord.ButtonStyle.gray,
                          emoji=EmojiEnum.FINISH.value,
                          row=1)
 
     async def callback(self, interaction: discord.Interaction):
+        guild_id = interaction.guild_id
         user_id = interaction.user.id
         message_id = interaction.message.id
         book_result = await self.clan_battle_boss_book_service.get_player_book_entry(message_id=message_id,
@@ -284,12 +300,14 @@ class DeadButton(Button):
             return
 
         book = book_result.result
-        if book_result.is_success and book is None:
-            await utils.discord_resp_send_msg(interaction=interaction, message="## Not Booked")
+        if book_result.is_success and book_result.result is None:
+            await utils.discord_resp_send_msg(interaction=interaction,
+                                              message=f"## {l.t(guild_id, "ui.status.not_yet_booked")}")
             return
 
         if book.damage is None:
-            await utils.discord_resp_send_msg(interaction=interaction, message="## Input entry first !")
+            await utils.discord_resp_send_msg(interaction=interaction,
+                                              message=f"## {l.t(guild_id, "ui.validation.enter_entry_type_first")}")
             return
 
         boss_entry = await self.clan_battle_boss_entry_service.get_last_by_message_id(message_id)
@@ -300,12 +318,12 @@ class DeadButton(Button):
 
         if book.damage < boss_entry.result.current_health:
             await utils.discord_resp_send_msg(interaction=interaction,
-                                              message="## Your entry damage lower than boss health !")
+                                              message=f"## {l.t(guild_id, "ui.validation.entry_damage_less_than_boss_hp")}")
             return
 
         # Fresh Entry
         if book.leftover_time is None:
-            modal = LeftoverInputModal()
+            modal = LeftoverModal(guild_id)
             await interaction.response.send_modal(modal)
         # Carry over
         else:
@@ -313,19 +331,25 @@ class DeadButton(Button):
             view.add_item(DeadOkButton(message_id=message_id, leftover_time=book.leftover_time))
             view.add_item(ConfirmationNoCancelButton(emoji_param=EmojiEnum.NO))
 
-            await interaction.response.send_message(content=f"## Are you sure want to Mark your entry as Boss Kill ?",
+            await interaction.response.send_message(content=f"## {l.t(guild_id, "ui.prompts.confirm_mark_as_boss_kill")}",
                                                     view=view, ephemeral=True,
                                                     delete_after=config.MESSAGE_DEFAULT_DELETE_AFTER_LONG)
 
 
 # Leftover Modal
-class LeftoverInputModal(Modal, title="Leftover Input"):
-    def __init__(self):
-        super().__init__()
+class LeftoverModal(Modal):
+    def __init__(self, guild_id: int):
+        super().__init__(
+            title=l.t(guild_id, "ui.popup.leftover_input.title")
+        )
+        self.guild_id = guild_id
+        self.user_input.label = l.t(guild_id, "ui.popup.leftover_input.label")
+        self.user_input.placeholder = l.t(guild_id, "ui.popup.leftover_input.placeholder")
+
 
     # Define a text input
     user_input = TextInput(
-        label="Leftover Time (in second)",
+        label="Leftover time (in seconds)",
         placeholder="20",
         style=discord.TextStyle.short,
         required=True,
@@ -335,15 +359,16 @@ class LeftoverInputModal(Modal, title="Leftover Input"):
 
     async def on_submit(self, interaction: discord.Interaction):
         message_id = interaction.message.id
+        guild_id = interaction.guild.id
         # Handle the submitted input
         if not self.user_input.value.isdigit():
-            await utils.discord_resp_send_msg(interaction=interaction, message=f"## Number only !")
+            await utils.discord_resp_send_msg(interaction=interaction, message=f"## {l.t(guild_id, "ui.validation.only_numbers_allowed")}")
             return
 
         leftover_time = int(self.user_input.value)
 
         if leftover_time < 20 or leftover_time > 90:
-            await utils.discord_resp_send_msg(interaction=interaction, message=f"## Must between 20 and 90s")
+            await utils.discord_resp_send_msg(interaction=interaction, message=f"## {l.t(guild_id, "ui.validation.leftover_time_range_invalid")}")
             return
 
         view = View(timeout=None)
@@ -351,8 +376,7 @@ class LeftoverInputModal(Modal, title="Leftover Input"):
         view.add_item(ConfirmationNoCancelButton(emoji_param=EmojiEnum.NO))
 
         await interaction.response.send_message(
-            content=f"## Are you sure want to Mark your entry as Boss Kill ?{NEW_LINE}"
-                    f"Leftover Time : **{leftover_time}s**",
+            content=f"## {l.t(guild_id, "ui.prompts.boss_kill_confirmation", leftover_time=leftover_time)}",
             view=view, ephemeral=True,
             delete_after=config.MESSAGE_DEFAULT_DELETE_AFTER_LONG)
 
@@ -401,7 +425,7 @@ class DeadOkButton(Button):
             self.logger.error(embeds.error_messages)
             return
 
-        await message.edit(content="", embeds=embeds.result, view=create_view())
+        await message.edit(content="", embeds=embeds.result, view=ButtonView(guild_id))
 
 
 # PATK Button
@@ -445,9 +469,9 @@ class BookPatkButton(Button):
             self.logger.error(embeds.error_messages)
             return
 
-        await message.edit(embeds=embeds.result, view=create_view())
+        await message.edit(embeds=embeds.result, view=ButtonView(guild_id))
         await utils.discord_close_response(interaction=interaction)
-        await interaction.channel.send(content=f"{display_name} {self.local_emoji.value} added to book list.",
+        await interaction.channel.send(content=f"{l.t(guild_id, "ui.events.user_added_to_booking_list", user=display_name, emoji=self.local_emoji.value)}",
                                        delete_after=config.MESSAGE_DEFAULT_DELETE_AFTER_SHORT)
 
 
@@ -492,10 +516,11 @@ class BookMatkButton(Button):
             self.logger.error(embeds.error_messages)
             return
 
-        await message.edit(embeds=embeds.result, view=create_view())
+        await message.edit(embeds=embeds.result, view=ButtonView(guild_id))
         await utils.discord_close_response(interaction=interaction)
-        await interaction.channel.send(content=f"{display_name} {self.local_emoji.value} added to book list.",
-                                       delete_after=config.MESSAGE_DEFAULT_DELETE_AFTER_SHORT)
+        await interaction.channel.send(
+            content=f"{l.t(guild_id, "ui.events.user_added_to_booking_list", user=display_name, emoji=self.local_emoji.value)}",
+            delete_after=config.MESSAGE_DEFAULT_DELETE_AFTER_SHORT)
 
 
 # Leftover Button
@@ -543,10 +568,11 @@ class BookLeftoverButton(Button):
             self.logger.error(embeds.error_messages)
             return
 
-        await message.edit(embeds=embeds.result, view=create_view())
+        await message.edit(embeds=embeds.result, view=ButtonView(guild_id))
         await utils.discord_close_response(interaction=interaction)
-        await interaction.channel.send(content=f"{display_name} {self.local_emoji.value} added to book list.",
-                                       delete_after=config.MESSAGE_DEFAULT_DELETE_AFTER_SHORT)
+        await interaction.channel.send(
+            content=f"{l.t(guild_id, "ui.events.user_added_to_booking_list", user=display_name, emoji=self.local_emoji.value)}",
+            delete_after=config.MESSAGE_DEFAULT_DELETE_AFTER_SHORT)
 
 
 # Universal Cancel / No Button
@@ -561,11 +587,12 @@ class ConfirmationNoCancelButton(Button):
         await utils.discord_close_response(interaction=interaction)
 
 
-def create_view() -> View:
-    view = View(timeout=None)
-    view.add_item(BookButton())
-    view.add_item(CancelButton())
-    view.add_item(EntryButton())
-    view.add_item(DoneButton())
-    view.add_item(DeadButton())
-    return view
+class ButtonView(View):
+    def __init__(self, guild_id: int):
+        super().__init__(timeout=None)
+        self.add_item(BookButton(text=l.t(guild_id, "ui.button.book")))
+        self.add_item(CancelButton(text=l.t(guild_id, "ui.button.cancel")))
+        self.add_item(EntryButton(text=l.t(guild_id, "ui.button.entry")))
+        self.add_item(DoneButton(text=l.t(guild_id, "ui.button.done")))
+        self.add_item(DeadButton(text=l.t(guild_id, "ui.button.dead")))
+

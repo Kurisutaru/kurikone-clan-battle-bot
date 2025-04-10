@@ -4,18 +4,18 @@ from typing import List, Optional
 
 import discord
 from discord import TextChannel, Colour, Message
-from discord.ui import View
 
 from config import config
 from enums import EmojiEnum
+from locale import Locale
 from logger import KuriLogger
 from models import ClanBattleBossEntry, ClanBattleOverallEntry, ClanBattleBossBook
-from ui import BookButton, CancelButton, EntryButton, DoneButton, DeadButton
+from ui import ButtonView
 
 NEW_LINE = "\n"
 
 logger = KuriLogger()
-
+l = Locale()
 
 ### DISCORD STUFF UTILS
 
@@ -44,10 +44,10 @@ async def discord_resp_send_msg(interaction: discord.Interaction, message: str, 
                                             delete_after=delete_after)  # type: ignore
 
 
-def create_header_embed(cb_boss_entry: ClanBattleBossEntry, include_image: bool = True,
+def create_header_embed(guild_id: int, cb_boss_entry: ClanBattleBossEntry, include_image: bool = True,
                         default_color: Colour = discord.Color.red()):
     embed = discord.Embed(
-        title=f"{cb_boss_entry.name} (Round {cb_boss_entry.boss_round})",
+        title=f"{cb_boss_entry.name} ({l.t(guild_id, "ui.status.round", round=cb_boss_entry.boss_round)})",
         description=f"""# HP : {format_large_number(cb_boss_entry.current_health)} / {format_large_number(cb_boss_entry.max_health)}{NEW_LINE}
                         {generate_health_bar(current_health=cb_boss_entry.current_health, max_health=cb_boss_entry.max_health)}
                         """,
@@ -58,38 +58,30 @@ def create_header_embed(cb_boss_entry: ClanBattleBossEntry, include_image: bool 
     return embed
 
 
-def create_done_embed(list_cb_overall_entry: List[ClanBattleOverallEntry],
+def create_done_embed(guild_id: int, list_cb_overall_entry: List[ClanBattleOverallEntry],
                       default_color: Colour = discord.Color.green()):
     embed = discord.Embed(
         title="",
-        description=generate_done_attack_list(list_cb_overall_entry),
+        description=generate_done_attack_list(guild_id, list_cb_overall_entry),
         color=default_color,
     )
     return embed
 
 
-def create_book_embed(list_boss_cb_player_entries: List[ClanBattleBossBook],
+def create_book_embed(guild_id: int, list_boss_cb_player_entries: List[ClanBattleBossBook],
                       default_color: Colour = discord.Color.blue()):
     embed = discord.Embed(
         title="",
-        description=generate_book_list(list_boss_cb_player_entries),
+        description=generate_book_list(guild_id, list_boss_cb_player_entries),
         color=default_color,
     )
     return embed
 
+def get_button_view(guild_id:int) -> ButtonView:
+    return ButtonView(guild_id)
 
-def create_view() -> View:
-    view = View(timeout=None)
-    view.add_item(BookButton())
-    view.add_item(CancelButton())
-    view.add_item(EntryButton())
-    view.add_item(DoneButton())
-    view.add_item(DeadButton())
-    return view
-
-
-def generate_done_attack_list(datas: List[ClanBattleOverallEntry]) -> str:
-    lines = [f"========== {EmojiEnum.DONE.value} Done List =========="]
+def generate_done_attack_list(guild_id: int, datas: List[ClanBattleOverallEntry]) -> str:
+    lines = [f"========== {EmojiEnum.DONE.value} {l.t(guild_id, "ui.label.done_list")} =========="]
     for data in datas:
         line = f"{NEW_LINE}{data.attack_type.value} {f"[{format_large_number(data.damage)}] " if data.damage else ''}: {data.player_name}"
         if data.leftover_time:
@@ -100,8 +92,8 @@ def generate_done_attack_list(datas: List[ClanBattleOverallEntry]) -> str:
     return f"```powershell{NEW_LINE}" + "".join(lines) + "```"
 
 
-def generate_book_list(datas: List[ClanBattleBossBook]) -> str:
-    lines = [f"========== {EmojiEnum.ENTRY.value} Book List =========="]
+def generate_book_list(guild_id: int, datas: List[ClanBattleBossBook]) -> str:
+    lines = [f"========== {EmojiEnum.ENTRY.value} {l.t(guild_id, "ui.label.book_list")} =========="]
     for data in datas:
         line = f"{NEW_LINE}{data.attack_type.value}{f"({data.leftover_time}s)" if data.leftover_time else ''} {f"[{format_large_number(data.damage)}] " if data.damage else ''}: {data.player_name}"
         lines.append(line)

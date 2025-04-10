@@ -1,0 +1,44 @@
+ja:
+  ui:
+    label:
+      done_list: "完了リスト"
+      book_list: "予約リスト"
+    popup:
+      entry_input:
+        title: "エントリー入力"
+        label: "エントリーダメージ"
+        placeholder: "ダメージを入力"
+      leftover_input:
+        title: "残り時間入力"
+        label: "残り時間（秒）"
+        placeholder: "例: 30"
+    button:
+      book: "予約"
+      cancel: "キャンセル"
+      entry: "エントリー"
+      done: "完了"
+      dead: "撃破"
+      ok: "OK"
+    status:
+      booked: "既に予約済みです！"
+      not_yet_booked: "まだ予約されていません！"
+      preparing_data: "データを準備中 . . ."
+      round: "ラウンド {round}"
+    validation:
+      enter_entry_type_first: "先にエントリータイプを入力してください！"
+      only_numbers_allowed: "数字のみ入力可能です！"
+      must_be_greater_than_zero: "0より大きい数値を入力してください！"
+      leftover_time_range_invalid: "残り時間は20〜90秒の間である必要があります"
+      entry_damage_less_than_boss_hp: "あなたのダメージはボスのHPを下回っています！"
+    prompts:
+      choose_entry_type: "エントリータイプを選択してください [{count_left}/3]"
+      confirm_mark_as_done: "このエントリーを完了としてマークしますか？"
+      confirm_mark_as_boss_kill: "このエントリーをボス撃破としてマークしますか？"
+      boss_kill_confirmation: |
+        このエントリーをボス撃破としてマークしてもよろしいですか？
+        残り時間: **{leftover_time}s**
+    events:
+      user_added_to_booking_list: "{user} {emoji} が予約リストに追加されました"
+      boss_killed: "{user} が {attack_type} でボスを撃破しました（{leftover_time}s）"
+  system:
+    command_error: "{user} は sudoers ファイルに存在しません。この操作は報告されます。"

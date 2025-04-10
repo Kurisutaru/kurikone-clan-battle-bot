@@ -1,0 +1,44 @@
+en:
+  ui:
+    label:
+      done_list: "Done List"
+      book_list: "Book List"
+    popup:
+      entry_input:
+        title: "Entry Input"
+        label: "Entry Damage"
+        placeholder: "Enter damage"
+      leftover_input:
+        title: "Leftover Input"
+        label: "Leftover Time (in seconds)"
+        placeholder: "e.g. 30"
+    button:
+      book: "Book"
+      cancel: "Cancel"
+      entry: "Entry"
+      done: "Done"
+      dead: "Dead"
+      ok: "OK"
+    status:
+      booked: "Already booked!"
+      not_yet_booked: "Not booked!"
+      preparing_data: "Preparing data . . ."
+      round: "Round {round}"
+    validation:
+      enter_entry_type_first: "Input entry first!"
+      only_numbers_allowed: "Number only!"
+      must_be_greater_than_zero: "Must be higher than 0!"
+      leftover_time_range_invalid: "Must be between 20 and 90s"
+      entry_damage_less_than_boss_hp: "Your entry damage is lower than the boss's health!"
+    prompts:
+      choose_entry_type: "Choose your Entry Type [{count_left}/3]"
+      confirm_mark_as_done: "Are you sure you want to mark your entry as Done?"
+      confirm_mark_as_boss_kill: "Are you sure you want to mark your entry as Boss Kill?"
+      boss_kill_confirmation: |
+        Are you sure you want to mark your entry as Boss Kill?
+        Leftover Time: **{leftover_time}s**
+    events:
+      user_added_to_booking_list: "{user} {emoji} added to book list"
+      boss_killed: "Boss killed by {user} with {attack_type} ({leftover_time}s)"
+  system:
+    command_error: "{user} is not in the sudoers file. This incident will be reported."

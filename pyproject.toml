@@ -10,4 +10,5 @@ dependencies = [
     "dotenv>=0.9.9",
     "envier==0.6.1",
     "mariadb>=1.1.12",
+    "pyi18n-v2==1.2.2",
 ]
