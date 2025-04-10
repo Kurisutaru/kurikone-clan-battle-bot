@@ -1,8 +1,12 @@
 from datetime import datetime
 
+from attr import Factory
 from attrs import field, define
 
 from enums import *
+from typing import TypeVar, Optional, Generic
+
+T = TypeVar('T')
 
 
 @define
@@ -106,3 +110,18 @@ class ClanBattleLeftover:
     attack_type: AttackTypeEnum = field(converter=lambda x: AttackTypeEnum[x] if isinstance(x, str) else x, default=None)
     leftover_time: int = field(default=None)
     overall_leftover_entry_id: int = field(default=None)
+
+
+@define
+class ServiceResult(Generic[T]):
+    result: T = field(default=None)
+    is_success: bool = field(default=False)
+    error_messages: str = field(default=None)
+
+    def set_success(self, result: T):
+        self.result = result
+        self.is_success = True
+
+    def set_error(self, err_msg: str):
+        self.error_messages = err_msg
+        self.is_success = False

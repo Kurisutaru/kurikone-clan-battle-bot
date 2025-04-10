@@ -1,5 +1,8 @@
 # Enum
 from enum import Enum
+
+import discord
+
 from config import config
 
 
@@ -35,3 +38,10 @@ class EmojiEnum(Enum):
     NO = "❌"
     GREEN_BLOCK = "🟩"
     RED_BLOCK = "🟥"
+
+
+class ButtonStyle:
+    PRIMARY = discord.ButtonStyle.primary
+    GREEN = discord.ButtonStyle.green
+    RED = discord.ButtonStyle.red
+    BLURPLE = discord.ButtonStyle.blurple
